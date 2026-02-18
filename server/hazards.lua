@@ -1,8 +1,11 @@
 -----------------------------------------------------------
 -- HAZARD MANAGEMENT (Server)
--- Rolls hazards after mining extractions, manages cave-in
--- and gas leak events, tracks wooden support placements.
+-- Rolls hazards after mining extractions, manages cave-in,
+-- gas leak, and rockslide events, tracks wooden support
+-- placements.
 -----------------------------------------------------------
+
+local DB = require 'server.database'
 
 -----------------------------------------------------------
 -- STATE
@@ -32,10 +35,10 @@ local function findSubZone(subZoneName)
     return nil
 end
 
---- Rolls a hazard type from the weighted types table.
+--- Rolls a hazard type from a weighted types table.
+---@param types table<string, number>
 ---@return string hazardType
-local function rollHazardType()
-    local types = Config.Hazards.types
+local function rollHazardType(types)
     local total = 0
     for _, weight in pairs(types) do
         total = total + weight
@@ -50,7 +53,8 @@ local function rollHazardType()
         end
     end
 
-    return 'cave_in' -- fallback
+    -- Fallback: first type
+    for t in pairs(types) do return t end
 end
 
 --- Checks if a wooden support is active in a sub-zone.
@@ -105,8 +109,15 @@ function RollHazard(subZoneName)
     local roll = math.random(1, 100)
     if roll > chance then return nil end
 
+    -- Determine hazard table based on zone type (quarry vs underground)
+    local zoneName = FindZoneKey(subZoneName)
+    local hazardTypes = Config.Hazards.types
+    if zoneName == 'quarry' and Config.Hazards.quarryTypes then
+        hazardTypes = Config.Hazards.quarryTypes
+    end
+
     -- Roll which hazard type
-    local hazardType = rollHazardType()
+    local hazardType = rollHazardType(hazardTypes)
 
     -- Wooden support only reduces cave-in chance (re-roll if cave-in is blocked)
     if hazardType == 'cave_in' and hasSupportActive(subZoneName) then
@@ -135,6 +146,7 @@ function TriggerCaveIn(subZoneName)
     activeHazards[subZoneName] = {
         type = 'cave_in',
         startTime = os.time(),
+        minedBoulders = {}, -- tracks which boulder indices have been mined
     }
 
     -- Generate random boulder positions within the spawn area
@@ -205,9 +217,16 @@ lib.callback.register('mining:server:mineBoulder', function(src, data)
     if not citizenId then return { success = false, reason = 'Player not loaded' } end
 
     -- Verify a cave-in is active
-    if not activeHazards[data.subZoneName] or activeHazards[data.subZoneName].type ~= 'cave_in' then
+    local hazard = activeHazards[data.subZoneName]
+    if not hazard or hazard.type ~= 'cave_in' then
         return { success = false, reason = 'No active cave-in' }
     end
+
+    -- Prevent double-mining the same boulder
+    if hazard.minedBoulders[data.boulderIndex] then
+        return { success = false, reason = 'Already mined' }
+    end
+    hazard.minedBoulders[data.boulderIndex] = true
 
     -- Stone yield (check inventory space, track actual amount given)
     local stoneAmount = math.random(Config.CaveIn.boulderStoneYield.min, Config.CaveIn.boulderStoneYield.max)
@@ -228,6 +247,9 @@ lib.callback.register('mining:server:mineBoulder', function(src, data)
             oreAmount = 1
         end
     end
+
+    -- Award XP for hazard cleanup
+    DB.AddMiningProgress(citizenId, 5, actualStone)
 
     return {
         success = true,
@@ -315,6 +337,102 @@ lib.callback.register('mining:server:gasCheck', function(src, subZoneName)
 
     local protected = CheckRespirator(src)
     return { active = true, protected = protected }
+end)
+
+-----------------------------------------------------------
+-- ROCKSLIDE EVENT (Phase 4 - quarry hazard)
+-----------------------------------------------------------
+
+--- Triggers a rockslide event in a sub-zone.
+---@param subZoneName string
+function TriggerRockslide(subZoneName)
+    if activeHazards[subZoneName] then return end
+
+    local subZone = findSubZone(subZoneName)
+    if not subZone or not subZone.spawnArea then return end
+
+    activeHazards[subZoneName] = {
+        type = 'rockslide',
+        startTime = os.time(),
+        minedDebris = {}, -- tracks which debris indices have been mined
+    }
+
+    -- Generate random debris positions within the spawn area
+    local debrisPositions = {}
+    local center = vec3(
+        (subZone.spawnArea.min.x + subZone.spawnArea.max.x) / 2,
+        (subZone.spawnArea.min.y + subZone.spawnArea.max.y) / 2,
+        subZone.spawnArea.min.z
+    )
+    local spread = Config.Rockslide.debrisSpreadRadius
+
+    for i = 1, Config.Rockslide.debrisCount do
+        local angle = (i / Config.Rockslide.debrisCount) * math.pi * 2
+        debrisPositions[i] = {
+            x = center.x + math.cos(angle) * spread * (0.5 + math.random() * 0.5),
+            y = center.y + math.sin(angle) * spread * (0.5 + math.random() * 0.5),
+            z = center.z,
+        }
+    end
+
+    -- Send warning phase to all clients
+    TriggerClientEvent('mining:client:rockslideWarning', -1, subZoneName)
+
+    -- After warning, trigger the slide
+    SetTimeout(Config.Rockslide.warningDuration, function()
+        if not activeHazards[subZoneName] then return end
+
+        TriggerClientEvent('mining:client:rockslideCollapse', -1, subZoneName, debrisPositions)
+
+        -- Clear event after slide duration
+        SetTimeout(Config.Rockslide.slideDuration, function()
+            activeHazards[subZoneName] = nil
+            TriggerClientEvent('mining:client:rockslideEnd', -1, subZoneName)
+        end)
+    end)
+end
+
+-----------------------------------------------------------
+-- ROCKSLIDE DEBRIS MINING CALLBACK
+-----------------------------------------------------------
+
+--- Server callback for mining rockslide debris.
+lib.callback.register('mining:server:mineDebris', function(src, data)
+    -- data: { subZoneName, debrisIndex }
+    if not checkCooldown(src, 'mining') then
+        return { success = false, reason = 'Too fast' }
+    end
+
+    local citizenId = getCitizenId(src)
+    if not citizenId then return { success = false, reason = 'Player not loaded' } end
+
+    -- Verify a rockslide is active
+    local hazard = activeHazards[data.subZoneName]
+    if not hazard or hazard.type ~= 'rockslide' then
+        return { success = false, reason = 'No active rockslide' }
+    end
+
+    -- Prevent double-mining the same debris
+    if hazard.minedDebris[data.debrisIndex] then
+        return { success = false, reason = 'Already mined' }
+    end
+    hazard.minedDebris[data.debrisIndex] = true
+
+    -- Stone yield
+    local stoneAmount = math.random(Config.Rockslide.debrisStoneYield.min, Config.Rockslide.debrisStoneYield.max)
+    local actualStone = 0
+    if exports.ox_inventory:CanCarryItem(src, 'stone', stoneAmount) then
+        exports.ox_inventory:AddItem(src, 'stone', stoneAmount)
+        actualStone = stoneAmount
+    end
+
+    -- Award XP for hazard cleanup
+    DB.AddMiningProgress(citizenId, 5, actualStone)
+
+    return {
+        success = true,
+        stoneAmount = actualStone,
+    }
 end)
 
 -----------------------------------------------------------

@@ -104,7 +104,7 @@ end
 --- Main mining event triggered by vein interaction.
 ---@param subZoneName string
 ---@param veinId number
-RegisterNetEvent('mining:client:startMining', function(subZoneName, veinId)
+AddEventHandler('mining:client:startMining', function(subZoneName, veinId)
     if isMining then return end
     if minigameActive then return end
 
@@ -157,6 +157,12 @@ RegisterNetEvent('mining:client:startMining', function(subZoneName, veinId)
 
     -- Apply tool speed and mode modifier
     mineTime = math.floor(mineTime / toolDef.speed / modeDef.speedMod)
+
+    -- Apply zone speed modifier (Phase 4)
+    local zoneSpeedMod = GetActiveZoneSpeedMod()
+    if zoneSpeedMod and zoneSpeedMod ~= 1.0 then
+        mineTime = math.floor(mineTime / zoneSpeedMod)
+    end
 
     -- Load animation
     local anim = toolDef.anim
@@ -225,16 +231,26 @@ end)
 -- SHOP
 -----------------------------------------------------------
 
-RegisterNetEvent('mining:client:openShop', function()
+AddEventHandler('mining:client:openShop', function()
     local options = {}
 
     for _, shopItem in ipairs(Config.Shop.items) do
+        -- Build item label from tools, equipment, or item name
+        local itemLabel = shopItem.item
+        if Config.Tools[shopItem.item] then
+            itemLabel = Config.Tools[shopItem.item].label
+        elseif Config.Equipment[shopItem.item] then
+            itemLabel = Config.Equipment[shopItem.item].label
+        end
+
+        local desc = ('Buy for $%s'):format(shopItem.price)
+        if shopItem.levelRequired then
+            desc = ('Buy for $%s (Requires Level %d)'):format(shopItem.price, shopItem.levelRequired)
+        end
+
         options[#options + 1] = {
-            title = ('%s - $%s'):format(
-                Config.Tools[shopItem.item] and Config.Tools[shopItem.item].label or shopItem.item,
-                shopItem.price
-            ),
-            description = ('Buy for $%s'):format(shopItem.price),
+            title = ('%s - $%s'):format(itemLabel, shopItem.price),
+            description = desc,
             icon = 'fas fa-shopping-cart',
             onSelect = function()
                 local result = lib.callback.await('mining:server:buyItem', false, {
@@ -242,7 +258,7 @@ RegisterNetEvent('mining:client:openShop', function()
                     amount = 1,
                 })
                 if result and result.success then
-                    lib.notify({ description = ('Purchased %s for $%s'):format(shopItem.item, result.cost), type = 'success' })
+                    lib.notify({ description = ('Purchased %s for $%s'):format(itemLabel, result.cost), type = 'success' })
                 elseif result then
                     lib.notify({ description = result.reason or 'Purchase failed', type = 'error' })
                 end
@@ -262,7 +278,7 @@ end)
 -- BUYER (Sell Items)
 -----------------------------------------------------------
 
-RegisterNetEvent('mining:client:openBuyer', function()
+AddEventHandler('mining:client:openBuyer', function()
     local options = {}
 
     for item, price in pairs(Config.SellPrices) do

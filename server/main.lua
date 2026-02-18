@@ -98,12 +98,59 @@ local function degradeTool(src, slot, toolName, wearAmount)
     end
 end
 
---- Calculates ore yield based on mode, minigame result, and vein quality.
+--- Finds the parent zone key for a given sub-zone name.
+--- Global: shared with hazards.lua.
+---@param subZoneName string
+---@return string|nil zoneName
+function FindZoneKey(subZoneName)
+    for zoneName, zoneData in pairs(Config.Zones) do
+        for _, sz in ipairs(zoneData.subZones) do
+            if sz.name == subZoneName then
+                return zoneName
+            end
+        end
+    end
+    return nil
+end
+
+--- Gets a player's mining level from the database.
+---@param citizenId string
+---@return number level
+local function getPlayerLevel(citizenId)
+    local stats = DB.GetStats(citizenId)
+    return stats and stats.level or 1
+end
+
+--- Checks if a player should level up based on accumulated XP.
+--- Called after awarding XP. Notifies the player on level-up.
+---@param src number
+---@param citizenId string
+local function checkLevelUp(src, citizenId)
+    local stats = DB.GetStats(citizenId)
+    if not stats then return end
+
+    local xpPerLevel = Config.Leveling.xpPerLevel
+    local maxLevel = Config.Leveling.maxLevel
+    local newLevel = math.min(maxLevel, math.floor(stats.experience / xpPerLevel) + 1)
+
+    if newLevel > stats.level then
+        DB.SetLevel(citizenId, newLevel, stats.experience)
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'LEVEL UP!',
+            description = ('Mining level %d reached!'):format(newLevel),
+            type = 'success',
+            duration = 6000,
+        })
+    end
+end
+
+--- Calculates ore yield based on mode, minigame result, vein quality, and zone modifier.
 ---@param mode string
 ---@param minigameResult string 'green'|'yellow'|'red'
 ---@param veinQuality number 0-100
+---@param zoneName string|nil parent zone key
 ---@return number
-local function calculateYield(mode, minigameResult, veinQuality)
+local function calculateYield(mode, minigameResult, veinQuality, zoneName)
     local modeDef = Config.MiningModes[mode]
     local minigameMod = Config.Minigame.yieldMultiplier[minigameResult] or 1.0
     local qualityMod = modeDef and modeDef.qualityMod or 1.0
@@ -112,8 +159,17 @@ local function calculateYield(mode, minigameResult, veinQuality)
     local qNorm = (veinQuality or 50) / 100
     local veinMod = Config.Veins.qualityYieldMin + qNorm * (Config.Veins.qualityYieldMax - Config.Veins.qualityYieldMin)
 
+    -- Zone yield modifier (Phase 4)
+    local zoneYieldMod = 1.0
+    if zoneName then
+        local zoneData = Config.Zones[zoneName]
+        if zoneData and zoneData.yieldMod then
+            zoneYieldMod = zoneData.yieldMod
+        end
+    end
+
     local base = math.random(Config.BaseYield.min, Config.BaseYield.max)
-    return math.max(1, math.floor(base * qualityMod * minigameMod * veinMod + 0.5))
+    return math.max(1, math.floor(base * qualityMod * minigameMod * veinMod * zoneYieldMod + 0.5))
 end
 
 -----------------------------------------------------------
@@ -231,8 +287,12 @@ lib.callback.register('mining:server:extract', function(src, data)
         return { success = false, reason = 'No suitable tool', requiredTool = oreDef.tool }
     end
 
-    -- Calculate yield (now includes vein quality)
-    local amount = calculateYield(mode, minigameResult, vein.quality)
+    -- Determine parent zone for modifiers
+    local subZoneName = data.subZoneName
+    local zoneName = FindZoneKey(subZoneName)
+
+    -- Calculate yield (includes vein quality and zone modifier)
+    local amount = calculateYield(mode, minigameResult, vein.quality, zoneName)
 
     -- Check inventory space
     if not exports.ox_inventory:CanCarryItem(src, oreType, amount) then
@@ -251,16 +311,18 @@ lib.callback.register('mining:server:extract', function(src, data)
     -- Award ore
     exports.ox_inventory:AddItem(src, oreType, amount)
 
-    -- Track stats
+    -- Track stats and check level-up
     DB.AddMiningProgress(citizenId, 10, amount)
+    checkLevelUp(src, citizenId)
 
     -- Roll for hazard after successful extraction
-    local subZoneName = data.subZoneName
     local hazardType = RollHazard(subZoneName)
     if hazardType == 'cave_in' then
         TriggerCaveIn(subZoneName)
     elseif hazardType == 'gas_leak' then
         TriggerGasLeak(subZoneName)
+    elseif hazardType == 'rockslide' then
+        TriggerRockslide(subZoneName)
     end
 
     return {
@@ -367,6 +429,17 @@ lib.callback.register('mining:server:buyItem', function(src, data)
         return { success = false, reason = 'Item not in shop' }
     end
 
+    -- Check level requirement (Phase 4)
+    if shopItem.levelRequired then
+        local citizenId = getCitizenId(src)
+        if citizenId then
+            local playerLevel = getPlayerLevel(citizenId)
+            if playerLevel < shopItem.levelRequired then
+                return { success = false, reason = ('Requires Mining Level %d (you are level %d)'):format(shopItem.levelRequired, playerLevel) }
+            end
+        end
+    end
+
     local totalCost = shopItem.price * amount
 
     -- Check money
@@ -420,13 +493,18 @@ end)
 -- DATA CALLBACKS
 -----------------------------------------------------------
 
---- Returns ore distribution data for a sub-zone.
+--- Returns ore distribution and zone data for a sub-zone.
 lib.callback.register('mining:server:getSubZoneData', function(src, subZoneName)
-    for _, zoneData in pairs(Config.Zones) do
+    for zoneName, zoneData in pairs(Config.Zones) do
         for _, sz in ipairs(zoneData.subZones) do
             if sz.name == subZoneName then
                 return {
                     oreDistribution = sz.oreDistribution,
+                    zoneName = zoneName,
+                    difficulty = zoneData.difficulty,
+                    miningSpeedMod = zoneData.miningSpeedMod,
+                    yieldMod = zoneData.yieldMod,
+                    requiresHelmet = zoneData.requiresHelmet,
                 }
             end
         end

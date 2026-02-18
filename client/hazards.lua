@@ -1,7 +1,8 @@
 -----------------------------------------------------------
 -- HAZARDS CLIENT
 -- Handles cave-in visual/audio effects, gas leak effects,
--- boulder mining, helmet light, and wooden support placement.
+-- rockslide effects, boulder/debris mining, helmet light,
+-- and wooden support placement.
 -----------------------------------------------------------
 
 -----------------------------------------------------------
@@ -10,6 +11,7 @@
 
 local activeCaveIn = nil       -- { subZoneName, boulders={entity,...}, boulderOres={}, phase='warning'|'collapse' }
 local activeGasLeak = nil      -- { subZoneName, phase='warning'|'active' }
+local activeRockslide = nil    -- { subZoneName, debris={entity,...}, debrisTargets={}, phase='warning'|'slide' }
 local gasLoopRunning = false   -- guard against duplicate gas damage loops
 local helmetLightActive = false
 local helmetLightHandle = nil
@@ -19,6 +21,7 @@ local supportNotifyActive = false
 
 -- Forward declarations
 local startBoulderTargets, removeBoulderTargets
+local startDebrisTargets, removeDebrisTargets
 
 -----------------------------------------------------------
 -- HELPERS
@@ -387,6 +390,229 @@ RegisterNetEvent('mining:client:gasLeakEnd', function(subZoneName)
 end)
 
 -----------------------------------------------------------
+-- ROCKSLIDE: WARNING PHASE (Phase 4)
+-----------------------------------------------------------
+
+RegisterNetEvent('mining:client:rockslideWarning', function(subZoneName)
+    local currentZone = GetActiveZone()
+    if currentZone ~= subZoneName then return end
+
+    activeRockslide = {
+        subZoneName = subZoneName,
+        debris = {},
+        debrisTargets = {},
+        phase = 'warning',
+    }
+
+    lib.notify({
+        title = 'ROCKSLIDE WARNING',
+        description = 'Loose rocks above! A rockslide is starting!',
+        type = 'error',
+        duration = Config.Rockslide.warningDuration,
+    })
+
+    -- Periodic screen shake during warning
+    CreateThread(function()
+        local endTime = GetGameTimer() + Config.Rockslide.warningDuration
+        while activeRockslide and activeRockslide.phase == 'warning' and GetGameTimer() < endTime do
+            ShakeGameplayCam('ROAD_VIBRATION_SHAKE', Config.Rockslide.warningShakeAmplitude)
+            Wait(500)
+        end
+    end)
+end)
+
+-----------------------------------------------------------
+-- ROCKSLIDE: COLLAPSE PHASE
+-----------------------------------------------------------
+
+RegisterNetEvent('mining:client:rockslideCollapse', function(subZoneName, debrisPositions)
+    local currentZone = GetActiveZone()
+    if currentZone ~= subZoneName then return end
+
+    if not activeRockslide then
+        activeRockslide = {
+            subZoneName = subZoneName,
+            debris = {},
+            debrisTargets = {},
+            phase = 'slide',
+        }
+    end
+
+    activeRockslide.phase = 'slide'
+
+    -- Screen shake
+    ShakeGameplayCam('MEDIUM_EXPLOSION_SHAKE', Config.Rockslide.slideShakeAmplitude)
+
+    -- Spawn debris props
+    local model = joaat(Config.Rockslide.debrisModel)
+    lib.requestModel(model)
+
+    for i, pos in ipairs(debrisPositions) do
+        local debris = CreateObject(model, pos.x, pos.y, pos.z - 1.0, false, true, false)
+        if debris and debris ~= 0 then
+            PlaceObjectOnGroundProperly(debris)
+            FreezeEntityPosition(debris, true)
+            activeRockslide.debris[i] = debris
+        end
+    end
+
+    SetModelAsNoLongerNeeded(model)
+
+    -- Create debris targets
+    startDebrisTargets(debrisPositions)
+
+    -- Slide damage thread (lighter than cave-in)
+    CreateThread(function()
+        local damageEnd = GetGameTimer() + Config.Rockslide.slideDamageDuration
+        local ped = PlayerPedId()
+        while activeRockslide and activeRockslide.phase == 'slide' and GetGameTimer() < damageEnd do
+            local health = GetEntityHealth(ped)
+            if health > 0 then
+                SetEntityHealth(ped, math.max(1, health - Config.Rockslide.slideDamage))
+            end
+            Wait(1000)
+        end
+    end)
+
+    lib.notify({
+        title = 'ROCKSLIDE!',
+        description = 'Rocks are falling! Clear the debris!',
+        type = 'error',
+        duration = 5000,
+    })
+end)
+
+-----------------------------------------------------------
+-- ROCKSLIDE: DEBRIS TARGETS
+-----------------------------------------------------------
+
+startDebrisTargets = function(debrisPositions)
+    if not activeRockslide then return end
+
+    for i, pos in ipairs(debrisPositions) do
+        local debrisIndex = i
+
+        local targetId = exports.ox_target:addSphereZone({
+            coords = vec3(pos.x, pos.y, pos.z),
+            radius = 1.5,
+            debug = false,
+            options = {
+                {
+                    name = 'mine_debris_' .. debrisIndex,
+                    label = 'Clear Debris',
+                    icon = 'fas fa-mountain',
+                    distance = 2.5,
+                    onSelect = function()
+                        TriggerEvent('mining:client:mineDebris', debrisIndex)
+                    end,
+                    canInteract = function()
+                        return activeRockslide and activeRockslide.phase == 'slide'
+                            and activeRockslide.debris[debrisIndex]
+                            and not LocalPlayer.state.isMining
+                    end,
+                },
+            },
+        })
+
+        activeRockslide.debrisTargets[i] = targetId
+    end
+end
+
+removeDebrisTargets = function()
+    if not activeRockslide then return end
+    for _, targetId in pairs(activeRockslide.debrisTargets) do
+        if targetId then
+            exports.ox_target:removeZone(targetId)
+        end
+    end
+    activeRockslide.debrisTargets = {}
+end
+
+-----------------------------------------------------------
+-- ROCKSLIDE: MINE DEBRIS EVENT
+-----------------------------------------------------------
+
+AddEventHandler('mining:client:mineDebris', function(debrisIndex)
+    if not activeRockslide or activeRockslide.phase ~= 'slide' then return end
+    if LocalPlayer.state.isMining then return end
+
+    LocalPlayer.state:set('isMining', true, false)
+
+    local animDict = 'melee@hatchet@streamed_core'
+    lib.requestAnimDict(animDict)
+
+    local completed = lib.progressCircle({
+        duration = Config.Rockslide.debrisMineTime,
+        label = 'Clearing debris...',
+        useWhileDead = false,
+        canCancel = true,
+        disable = { move = true, combat = true, car = true },
+        anim = { dict = animDict, clip = 'plyr_shoot_2h', flag = 1 },
+    })
+
+    if not completed then
+        lib.notify({ description = 'Cancelled.', type = 'inform' })
+        LocalPlayer.state:set('isMining', false, false)
+        return
+    end
+
+    local result = lib.callback.await('mining:server:mineDebris', false, {
+        subZoneName = activeRockslide.subZoneName,
+        debrisIndex = debrisIndex,
+    })
+
+    if result and result.success then
+        lib.notify({
+            description = ('Debris cleared! %dx Stone'):format(result.stoneAmount),
+            type = 'success',
+        })
+
+        -- Remove the debris prop and target
+        if activeRockslide and activeRockslide.debris[debrisIndex] then
+            local debris = activeRockslide.debris[debrisIndex]
+            if DoesEntityExist(debris) then
+                DeleteEntity(debris)
+            end
+            activeRockslide.debris[debrisIndex] = nil
+        end
+
+        if activeRockslide and activeRockslide.debrisTargets[debrisIndex] then
+            exports.ox_target:removeZone(activeRockslide.debrisTargets[debrisIndex])
+            activeRockslide.debrisTargets[debrisIndex] = nil
+        end
+    elseif result then
+        lib.notify({ description = result.reason or 'Failed', type = 'error' })
+    end
+
+    LocalPlayer.state:set('isMining', false, false)
+end)
+
+-----------------------------------------------------------
+-- ROCKSLIDE: END
+-----------------------------------------------------------
+
+RegisterNetEvent('mining:client:rockslideEnd', function(subZoneName)
+    if not activeRockslide or activeRockslide.subZoneName ~= subZoneName then return end
+
+    -- Clean up remaining debris
+    for _, debris in pairs(activeRockslide.debris) do
+        if debris and DoesEntityExist(debris) then
+            DeleteEntity(debris)
+        end
+    end
+
+    removeDebrisTargets()
+    StopGameplayCamShaking(true)
+    activeRockslide = nil
+
+    lib.notify({
+        description = 'The rockslide has settled. Area is clear.',
+        type = 'inform',
+        duration = 4000,
+    })
+end)
+
+-----------------------------------------------------------
 -- HELMET LIGHT SYSTEM
 -----------------------------------------------------------
 
@@ -499,6 +725,12 @@ RegisterNetEvent('mining:client:placeSupport', function()
         return
     end
 
+    -- Wooden supports are not effective in quarry zones (Phase 4)
+    if GetActiveZoneKey() == 'quarry' then
+        lib.notify({ description = 'Wooden supports are not effective in open quarries.', type = 'inform' })
+        return
+    end
+
     if LocalPlayer.state.isMining then return end
     LocalPlayer.state:set('isMining', true, false)
 
@@ -594,6 +826,18 @@ function CleanupHazards()
         AnimpostfxStop('DrugsMichaelAliensFightIn')
         activeGasLeak = nil
         gasLoopRunning = false
+    end
+
+    -- Rockslide cleanup (Phase 4)
+    if activeRockslide then
+        for _, debris in pairs(activeRockslide.debris) do
+            if debris and DoesEntityExist(debris) then
+                DeleteEntity(debris)
+            end
+        end
+        removeDebrisTargets()
+        StopGameplayCamShaking(true)
+        activeRockslide = nil
     end
 
     -- Helmet light cleanup

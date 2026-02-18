@@ -177,6 +177,22 @@
         description = 'Brilliantly cut diamond',
     },
 
+    -- Quarry Ores (Phase 4)
+    ['limestone'] = {
+        label = 'Limestone',
+        weight = 5000,
+        stack = true,
+        close = false,
+        description = 'Quarried limestone block',
+    },
+    ['sandstone'] = {
+        label = 'Sandstone',
+        weight = 4000,
+        stack = true,
+        close = false,
+        description = 'Quarried sandstone',
+    },
+
     -- Materials
     ['stone'] = {
         label = 'Stone',

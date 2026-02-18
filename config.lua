@@ -120,6 +120,30 @@ Config.Ores = {
         output = 'cut_diamond',
         difficulty = 'expert',
     },
+
+    -- Quarry ores (Phase 4)
+    ['limestone'] = {
+        label = 'Limestone',
+        zone = 'quarry',
+        weight = 5000,
+        mineTime = 4000,
+        rarity = 40,
+        tool = 'any',
+        processing = 'none',
+        output = nil,
+        difficulty = 'easy',
+    },
+    ['sandstone'] = {
+        label = 'Sandstone',
+        zone = 'quarry',
+        weight = 4000,
+        mineTime = 3500,
+        rarity = 45,
+        tool = 'any',
+        processing = 'none',
+        output = nil,
+        difficulty = 'easy',
+    },
 }
 
 -----------------------------------------------------------
@@ -132,7 +156,7 @@ Config.Tools = {
         maxDurability = 300,
         speed = 1.0,
         price = 500,
-        canMine = { 'ore_copper', 'ore_silver', 'ore_gold', 'raw_quartz', 'raw_emerald', 'ore_iron', 'coal' },
+        canMine = { 'ore_copper', 'ore_silver', 'ore_gold', 'raw_quartz', 'raw_emerald', 'ore_iron', 'coal', 'limestone', 'sandstone' },
         anim = { dict = 'melee@hatchet@streamed_core', clip = 'plyr_shoot_2h' },
     },
     ['rock_drill'] = {
@@ -140,7 +164,7 @@ Config.Tools = {
         maxDurability = 150,
         speed = 1.8,
         price = 2500,
-        canMine = { 'ore_copper', 'ore_silver', 'ore_gold', 'raw_quartz', 'raw_emerald', 'ore_iron', 'ore_platinum', 'ore_titanium', 'coal', 'raw_diamond' },
+        canMine = { 'ore_copper', 'ore_silver', 'ore_gold', 'raw_quartz', 'raw_emerald', 'ore_iron', 'ore_platinum', 'ore_titanium', 'coal', 'raw_diamond', 'limestone', 'sandstone' },
         anim = { dict = 'anim@heists@fleeca_bank@drilling', clip = 'drill_straight_idle' },
     },
 }
@@ -270,6 +294,10 @@ Config.SellPrices = {
     -- Raw gems are NOT sellable (must be cut)
     -- raw_quartz, raw_emerald, raw_diamond = nil
 
+    -- Quarry ores (Phase 4)
+    limestone = 15,
+    sandstone = 12,
+
     -- Materials
     stone = 8,
 }
@@ -282,7 +310,7 @@ Config.Shop = {
     label = 'Mining Supply Shop',
     items = {
         { item = 'pickaxe',          price = 500 },
-        { item = 'rock_drill',       price = 2500 },
+        { item = 'rock_drill',       price = 2500, levelRequired = 10 },
         { item = 'drill_bit',        price = 400 },
         { item = 'propane_canister', price = 25 },
         { item = 'mining_helmet',    price = 350 },
@@ -300,8 +328,75 @@ Config.Shop = {
 -- TODO: Update all coordinates once MLOs are loaded and positioned.
 
 Config.Zones = {
+    quarry = {
+        label = 'Surface Quarry',
+        difficulty = 'easy',
+        miningSpeedMod = 1.2,   -- 20% faster mining (open-pit, easy access)
+        yieldMod = 0.8,         -- 20% less yield (lower quality surface deposits)
+        requiresHelmet = false,  -- outdoor, well-lit
+        entryMessage = 'Open-pit quarry. Easy access, common ores.',
+        subZones = {
+            {
+                name = 'quarry_upper',
+                label = 'Upper Terrace',
+                points = {
+                    vec3(200.0, 0.0, 0.0),
+                    vec3(220.0, 0.0, 0.0),
+                    vec3(220.0, 15.0, 0.0),
+                    vec3(200.0, 15.0, 0.0),
+                },
+                minZ = -5.0,
+                maxZ = 15.0,
+                oreDistribution = {
+                    limestone = 35,
+                    sandstone = 30,
+                    ore_copper = 20,
+                    coal = 15,
+                },
+                spawnArea = {
+                    min = vec3(201.0, 1.0, 0.0),
+                    max = vec3(219.0, 14.0, 0.0),
+                },
+                veinDensity = 5,
+                hazardWeight = 0.3,
+                isDark = false,
+            },
+            {
+                name = 'quarry_lower',
+                label = 'Lower Pit',
+                points = {
+                    vec3(200.0, 20.0, 0.0),
+                    vec3(225.0, 20.0, 0.0),
+                    vec3(225.0, 35.0, 0.0),
+                    vec3(200.0, 35.0, 0.0),
+                },
+                minZ = -10.0,
+                maxZ = 10.0,
+                oreDistribution = {
+                    limestone = 25,
+                    sandstone = 20,
+                    ore_copper = 25,
+                    ore_iron = 20,
+                    coal = 10,
+                },
+                spawnArea = {
+                    min = vec3(201.0, 21.0, 0.0),
+                    max = vec3(224.0, 34.0, 0.0),
+                },
+                veinDensity = 5,
+                hazardWeight = 0.5,
+                isDark = false,
+            },
+        },
+    },
+
     cave = {
         label = 'Cave System',
+        difficulty = 'medium',
+        miningSpeedMod = 1.0,   -- standard speed
+        yieldMod = 1.0,         -- standard yield
+        requiresHelmet = true,   -- dark interior sections
+        entryMessage = 'Natural cave system. Moderate hazards. Helmet recommended.',
         subZones = {
             {
                 name = 'cave_entrance',
@@ -383,6 +478,11 @@ Config.Zones = {
 
     mine_shaft = {
         label = 'Mine Shaft',
+        difficulty = 'hard',
+        miningSpeedMod = 0.85,  -- 15% slower (cramped, difficult conditions)
+        yieldMod = 1.3,         -- 30% more yield (rich deep deposits)
+        requiresHelmet = true,   -- dark underground
+        entryMessage = 'Industrial mine shaft. High hazards. Full equipment required.',
         subZones = {
             {
                 name = 'shaft_level1',
@@ -561,6 +661,8 @@ Config.IndicatorProps = {
     raw_quartz   = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
     raw_emerald  = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
     raw_diamond  = { model = 'prop_rock_4_cl2',   count = 3, offsetRange = 1.0 },
+    limestone    = { model = 'prop_rock_4_b',     count = 2, offsetRange = 0.8 },
+    sandstone    = { model = 'prop_rock_4_b',     count = 1, offsetRange = 0.6 },
 }
 
 -----------------------------------------------------------
@@ -573,9 +675,15 @@ Config.Hazards = {
     baseChance = 8,
 
     -- Which hazard types can occur (weights for random selection when a hazard triggers)
+    -- Used in underground zones (cave, mine_shaft)
     types = {
         cave_in  = 60,  -- 60% of hazard rolls become cave-ins
         gas_leak = 40,  -- 40% of hazard rolls become gas leaks
+    },
+
+    -- Quarry-specific hazard types (surface zones)
+    quarryTypes = {
+        rockslide = 100, -- 100% of quarry hazard rolls become rockslides
     },
 }
 
@@ -616,6 +724,37 @@ Config.CaveIn = {
 }
 
 -----------------------------------------------------------
+-- ROCKSLIDE (Phase 4 - quarry hazard)
+-----------------------------------------------------------
+
+Config.Rockslide = {
+    -- Warning phase: dust and rumble before the slide
+    warningDuration = 5000,    -- 5 seconds warning
+
+    -- Main slide event duration
+    slideDuration = 30000,     -- 30 seconds (shorter than cave-in)
+
+    -- Screen shake during warning
+    warningShakeAmplitude = 0.15,
+    -- Screen shake during slide
+    slideShakeAmplitude = 0.5,
+    slideShakeDuration = 2000,
+
+    -- Debris spawned
+    debrisCount = 2,
+    debrisModel = 'prop_rock_4_big',
+    debrisSpreadRadius = 4.0,
+
+    -- Damage (lighter than cave-in)
+    slideDamage = 3,
+    slideDamageDuration = 3000,
+
+    -- Debris yields stone when mined
+    debrisMineTime = 6000,
+    debrisStoneYield = { min = 3, max = 8 },
+}
+
+-----------------------------------------------------------
 -- GAS LEAK
 -----------------------------------------------------------
 
@@ -634,6 +773,15 @@ Config.GasLeak = {
 
     -- Respirator uses consumed per second during active gas
     respiratorDrainPerTick = 1,
+}
+
+-----------------------------------------------------------
+-- LEVELING (Phase 4)
+-----------------------------------------------------------
+-- XP required per level: level N requires baseXP * N^exponent total XP
+Config.Leveling = {
+    maxLevel = 20,
+    xpPerLevel = 100,  -- XP needed per level (level 2 = 100, level 3 = 200, etc.)
 }
 
 -----------------------------------------------------------

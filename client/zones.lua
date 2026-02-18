@@ -4,11 +4,12 @@
 -- Delegates vein targets/props to client/veins.lua.
 -----------------------------------------------------------
 
-local activeZone = nil      -- current sub-zone name the player is in
-local activeBlips = {}      -- map blips
+local activeZone = nil           -- current sub-zone name the player is in
+local activeZoneKey = nil        -- parent zone key (e.g. 'quarry', 'cave', 'mine_shaft')
+local activeBlips = {}           -- map blips
 
 -----------------------------------------------------------
--- GETTERS (used by mining.lua and processing.lua)
+-- GETTERS (used by mining.lua, processing.lua, hazards.lua)
 -----------------------------------------------------------
 
 --- Returns the name of the sub-zone the player is currently inside, or nil.
@@ -17,9 +18,33 @@ function GetActiveZone()
     return activeZone
 end
 
+--- Returns the parent zone key for the current sub-zone, or nil.
+---@return string|nil
+function GetActiveZoneKey()
+    return activeZoneKey
+end
+
+--- Returns the mining speed modifier for the current zone.
+---@return number speedMod (1.0 if no zone or no modifier)
+function GetActiveZoneSpeedMod()
+    if not activeZoneKey then return 1.0 end
+    local zoneData = Config.Zones[activeZoneKey]
+    return zoneData and zoneData.miningSpeedMod or 1.0
+end
+
 -----------------------------------------------------------
 -- SUB-ZONE REGISTRATION
 -----------------------------------------------------------
+
+--- Builds a difficulty color string for notifications.
+---@param difficulty string
+---@return string
+local function difficultyColor(difficulty)
+    if difficulty == 'easy' then return '~g~Easy~s~' end
+    if difficulty == 'medium' then return '~y~Medium~s~' end
+    if difficulty == 'hard' then return '~r~Hard~s~' end
+    return difficulty or 'Unknown'
+end
 
 local function initZones()
     for zoneName, zoneData in pairs(Config.Zones) do
@@ -30,17 +55,35 @@ local function initZones()
                 debug = false,
                 onEnter = function()
                     activeZone = subZone.name
+                    activeZoneKey = zoneName
                     -- Load dynamic veins for this sub-zone
                     LoadVeinsForSubZone(subZone.name)
+
+                    -- Enhanced zone entry notification (Phase 4)
+                    local diffLabel = (zoneData.difficulty or 'unknown'):upper()
+                    local notifyType = 'inform'
+                    if zoneData.difficulty == 'hard' then
+                        notifyType = 'error'
+                    elseif zoneData.difficulty == 'medium' then
+                        notifyType = 'warning'
+                    end
+
+                    local desc = ('Entered %s - %s'):format(zoneData.label, subZone.label)
+                    if zoneData.entryMessage then
+                        desc = desc .. '\n' .. zoneData.entryMessage
+                    end
+
                     lib.notify({
-                        description = ('Entered %s - %s'):format(zoneData.label, subZone.label),
-                        type = 'inform',
-                        duration = 3000,
+                        title = ('%s [%s]'):format(zoneData.label, diffLabel),
+                        description = desc,
+                        type = notifyType,
+                        duration = 5000,
                     })
                 end,
                 onExit = function()
                     if activeZone == subZone.name then
                         activeZone = nil
+                        activeZoneKey = nil
                         -- Unload veins when leaving sub-zone
                         UnloadActiveVeins()
                     end
@@ -189,6 +232,7 @@ local function cleanup()
     CleanupVeins()
     CleanupHazards()
     activeZone = nil
+    activeZoneKey = nil
 end
 
 -----------------------------------------------------------

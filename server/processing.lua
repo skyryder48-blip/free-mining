@@ -122,7 +122,12 @@ lib.callback.register('mining:server:smelt', function(src, data)
                     if newUses <= 0 then
                         exports.ox_inventory:RemoveItem(src, 'propane_canister', 1, nil, slot.slot)
                     else
-                        exports.ox_inventory:SetMetadata(src, slot.slot, { uses = newUses })
+                        local meta = {}
+                        if slot.metadata then
+                            for k, v in pairs(slot.metadata) do meta[k] = v end
+                        end
+                        meta.uses = newUses
+                        exports.ox_inventory:SetMetadata(src, slot.slot, meta)
                     end
                     break
                 end
@@ -135,9 +140,10 @@ lib.callback.register('mining:server:smelt', function(src, data)
         exports.ox_inventory:AddItem(src, outputItem, outputAmount)
     end
 
-    -- Track stats
+    -- Track stats and check level-up
     if outputAmount > 0 then
         DB.AddMiningProgress(citizenId, 15, 0) -- 15 XP for smelting, 0 additional ore mined
+        checkLevelUp(src, citizenId)
     end
 
     return {
@@ -226,8 +232,9 @@ lib.callback.register('mining:server:cutGem', function(src, data)
         description = qualityLabel .. ' quality',
     })
 
-    -- Track stats
+    -- Track stats and check level-up
     DB.AddMiningProgress(citizenId, 20, 0) -- 20 XP for cutting
+    checkLevelUp(src, citizenId)
 
     return {
         success = true,
