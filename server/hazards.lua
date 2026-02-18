@@ -126,7 +126,8 @@ function RollHazard(subZoneName)
     if not subZone then return nil end
 
     local hazardWeight = subZone.hazardWeight or 1.0
-    local chance = Config.Hazards.baseChance * hazardWeight
+    local hazardMul = GetMultiplier and GetMultiplier('hazardRate') or 1.0
+    local chance = Config.Hazards.baseChance * hazardWeight * hazardMul
 
     local roll = math.random(1, 100)
     if roll > chance then return nil end

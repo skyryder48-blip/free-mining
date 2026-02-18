@@ -320,6 +320,31 @@ local function regenerateVeins()
 end
 
 -----------------------------------------------------------
+-- ADMIN HELPERS
+-----------------------------------------------------------
+
+--- Returns a summary of active veins per sub-zone (used by admin commands).
+---@return table[] { subZone, active, total }
+function GetVeinSummary()
+    local summary = {}
+    for subZoneName, veins in pairs(veinCache) do
+        local active = 0
+        for _, vein in ipairs(veins) do
+            if not vein.depletedAt and vein.remaining > 0 then
+                active = active + 1
+            end
+        end
+        summary[#summary + 1] = {
+            subZone = subZoneName,
+            active = active,
+            total = #veins,
+        }
+    end
+    table.sort(summary, function(a, b) return a.subZone < b.subZone end)
+    return summary
+end
+
+-----------------------------------------------------------
 -- CLIENT DATA CALLBACKS
 -----------------------------------------------------------
 

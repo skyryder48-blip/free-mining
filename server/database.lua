@@ -69,6 +69,45 @@ function DB.SetLevel(citizenId, level, experience)
 end
 
 -----------------------------------------------------------
+-- ADMIN (Phase 8)
+-----------------------------------------------------------
+
+--- Resets a player's mining stats to defaults.
+---@param citizenId string
+function DB.ResetStats(citizenId)
+    MySQL.update.await([[
+        UPDATE mining_stats
+        SET level = 1, experience = 0, total_mined = 0, total_earned = 0
+        WHERE player_id = ?
+    ]], { citizenId })
+end
+
+--- Gets a server-wide economy summary.
+---@return table
+function DB.GetEconomySummary()
+    local result = MySQL.single.await([[
+        SELECT
+            COUNT(*) AS totalPlayers,
+            COALESCE(SUM(total_mined), 0) AS totalMined,
+            COALESCE(SUM(total_earned), 0) AS totalEarned,
+            COALESCE(AVG(level), 1) AS avgLevel
+        FROM mining_stats
+    ]])
+
+    local discoveries = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_discoveries
+    ]]) or 0
+
+    return {
+        totalPlayers = result and result.totalPlayers or 0,
+        totalMined = result and result.totalMined or 0,
+        totalEarned = result and result.totalEarned or 0,
+        avgLevel = result and result.avgLevel or 1,
+        totalDiscoveries = discoveries,
+    }
+end
+
+-----------------------------------------------------------
 -- CONTRACTS (Phase 7)
 -----------------------------------------------------------
 

@@ -242,6 +242,32 @@ exports.ox_inventory:registerHook('usingItem', function(payload)
 end, { itemFilter = { drill_bit = true } })
 
 -----------------------------------------------------------
+-- PER-VEIN COOLDOWNS (Phase 8)
+-----------------------------------------------------------
+
+local veinCooldowns = {} -- veinCooldowns[veinId][src] = timestamp
+
+--- Checks and sets per-vein cooldown for a player.
+---@param veinId number
+---@param src number
+---@return boolean passed
+local function checkVeinCooldown(veinId, src)
+    if not Config.AntiCheat or not Config.AntiCheat.enabled then return true end
+
+    local cd = Config.AntiCheat.perVeinCooldown or 3
+    local now = os.time()
+
+    if not veinCooldowns[veinId] then veinCooldowns[veinId] = {} end
+    local lastMined = veinCooldowns[veinId][src]
+    if lastMined and (now - lastMined) < cd then
+        return false
+    end
+
+    veinCooldowns[veinId][src] = now
+    return true
+end
+
+-----------------------------------------------------------
 -- MINING CALLBACK
 -----------------------------------------------------------
 
@@ -274,6 +300,38 @@ lib.callback.register('mining:server:extract', function(src, data)
         return { success = false, reason = 'This vein is depleted' }
     end
 
+    -- Per-vein cooldown (Phase 8)
+    if not checkVeinCooldown(veinId, src) then
+        return { success = false, reason = 'This vein needs a moment to settle' }
+    end
+
+    -- Server-side position validation (Phase 8)
+    if Config.AntiCheat and Config.AntiCheat.enabled then
+        local ped = GetPlayerPed(src)
+        if ped and ped ~= 0 then
+            local playerCoords = GetEntityCoords(ped)
+            local dx = playerCoords.x - vein.coords.x
+            local dy = playerCoords.y - vein.coords.y
+            local dz = playerCoords.z - vein.coords.z
+            local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if dist > Config.AntiCheat.maxMiningDistance then
+                -- Flag player for possible teleport mining
+                if FlagPlayer then
+                    FlagPlayer(citizenId, 'distance', ('Mined vein %d from %.1f units away'):format(veinId, dist))
+                end
+                return { success = false, reason = 'Too far from vein' }
+            end
+        end
+    end
+
+    -- Anti-cheat rate limit (Phase 8)
+    if RecordAction then
+        local allowed = RecordAction(citizenId, 'mining')
+        if not allowed then
+            return { success = false, reason = 'Mining too frequently' }
+        end
+    end
+
     -- Get ore definition from vein's ore type
     local oreType = vein.oreType
     local oreDef = Config.Ores[oreType]
@@ -294,6 +352,11 @@ lib.callback.register('mining:server:extract', function(src, data)
     -- Calculate yield (includes vein quality and zone modifier)
     local amount = calculateYield(mode, minigameResult, vein.quality, zoneName)
 
+    -- Apply global yield multiplier (Phase 8)
+    if GetMultiplier then
+        amount = math.max(1, math.floor(amount * GetMultiplier('yield') + 0.5))
+    end
+
     -- Check inventory space
     if not exports.ox_inventory:CanCarryItem(src, oreType, amount) then
         return { success = false, reason = 'Inventory full' }
@@ -311,9 +374,16 @@ lib.callback.register('mining:server:extract', function(src, data)
     -- Award ore
     exports.ox_inventory:AddItem(src, oreType, amount)
 
-    -- Track stats and check level-up
-    DB.AddMiningProgress(citizenId, 10, amount)
+    -- Track stats and check level-up (apply XP multiplier)
+    local baseXp = 10
+    local xpGained = math.floor(baseXp * (GetMultiplier and GetMultiplier('xp') or 1.0))
+    DB.AddMiningProgress(citizenId, xpGained, amount)
     checkLevelUp(src, citizenId)
+
+    -- Track hourly stats for anti-cheat
+    if TrackHourlyStats then
+        TrackHourlyStats(citizenId, amount, 0)
+    end
 
     -- Roll for hazard after successful extraction
     local hazardType = RollHazard(subZoneName)
@@ -356,7 +426,7 @@ lib.callback.register('mining:server:extract', function(src, data)
         minigameResult = minigameResult,
         veinQuality = vein.quality,
         veinRemaining = math.max(0, vein.remaining - 1),
-        xpGained = 10,
+        xpGained = xpGained,
         rareFind = rareFind,
     }
 end)
@@ -415,13 +485,20 @@ lib.callback.register('mining:server:sell', function(src, data)
         rareBonusMul = GetRareSellBonus(citizenId, item)
     end
 
-    local total = math.floor(price * amount * qualityMul * rareBonusMul)
+    -- Apply global sell price multiplier (Phase 8)
+    local sellMul = GetMultiplier and GetMultiplier('sellPrice') or 1.0
+    local total = math.floor(price * amount * qualityMul * rareBonusMul * sellMul)
     local player = exports.qbx_core:GetPlayer(src)
     if player then
         player.Functions.AddMoney('cash', total, 'mining-sale')
     end
 
     DB.AddEarnings(citizenId, total)
+
+    -- Track hourly earnings for anti-cheat
+    if TrackHourlyStats then
+        TrackHourlyStats(citizenId, 0, total)
+    end
 
     -- Advance earn_cash contracts (Phase 7)
     if AdvanceContracts then

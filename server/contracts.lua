@@ -180,16 +180,6 @@ function AdvanceContracts(src, citizenId, eventType, amount, extraData)
             end
         end
 
-        -- Generic ore mining also counts for 'mine_ore' contracts
-        if contract.contract_type == 'mine_ore' and (eventType == 'mine_ore' or eventType == 'mine_specific' or eventType == 'mine_zone') then
-            matches = true
-        end
-
-        -- Gems mined count for mine_gems
-        if contract.contract_type == 'mine_gems' and eventType == 'mine_gems' then
-            matches = true
-        end
-
         if matches then
             local newProgress = DB.AddContractProgress(contract.id, amount)
 
@@ -217,10 +207,10 @@ function AdvanceContracts(src, citizenId, eventType, amount, extraData)
                     cashReward = cashReward,
                 })
 
-                -- Check if all-complete bonus
+                -- Check if all-complete bonus (exactly maxActive completed today, none left active)
                 local todayCompleted = DB.GetTodayCompletedCount(citizenId)
                 local activeRemaining = DB.CountActiveContracts(citizenId)
-                if todayCompleted >= Config.Contracts.maxActive and activeRemaining == 0 then
+                if todayCompleted == Config.Contracts.maxActive and activeRemaining == 0 then
                     local bonus = Config.Contracts.completionBonus
                     DB.AddMiningProgress(citizenId, bonus.xp, 0)
                     checkLevelUp(src, citizenId)
@@ -261,6 +251,11 @@ function RollRareFind(mode, minigameResult, veinQuality)
     if not Config.RareFinds.enabled then return nil end
 
     local chance = Config.RareFinds.baseChance
+
+    -- Apply global rare chance multiplier (Phase 8)
+    if GetMultiplier then
+        chance = chance * GetMultiplier('rareChance')
+    end
 
     -- Quality bonus: linear scale from 0 to qualityBonus at quality 100
     local qNorm = (veinQuality or 50) / 100

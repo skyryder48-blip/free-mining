@@ -1193,3 +1193,54 @@ Config.Explosives = {
         flashEffect = 'SwitchHUDIn',
     },
 }
+
+-----------------------------------------------------------
+-- ADMIN & ECONOMY (Phase 8)
+-----------------------------------------------------------
+
+Config.Admin = {
+    -- ACE permission required for admin commands
+    acePermission = 'mining.admin',
+
+    -- Economy multipliers (adjustable at runtime via admin commands)
+    -- These are defaults; server/admin.lua keeps live overrides in memory.
+    defaultMultipliers = {
+        xp = 1.0,          -- global XP multiplier
+        yield = 1.0,       -- global ore yield multiplier
+        sellPrice = 1.0,   -- global sell price multiplier
+        hazardRate = 1.0,  -- global hazard chance multiplier
+        rareChance = 1.0,  -- global rare find chance multiplier
+    },
+}
+
+-----------------------------------------------------------
+-- ANTI-CHEAT (Phase 8)
+-----------------------------------------------------------
+
+Config.AntiCheat = {
+    enabled = true,
+
+    -- Position validation: max distance (units) from vein to accept extraction
+    maxMiningDistance = 8.0,
+
+    -- Per-vein cooldown: seconds before same player can mine same vein
+    perVeinCooldown = 3,
+
+    -- Rate limits (actions per window)
+    rateLimits = {
+        -- Max extractions per 60 seconds
+        mining = { max = 20, window = 60 },
+        -- Max sells per 60 seconds
+        selling = { max = 15, window = 60 },
+        -- Max purchases per 60 seconds
+        purchase = { max = 10, window = 60 },
+    },
+
+    -- Flag thresholds: when exceeded, flag player for review
+    flags = {
+        -- If player earns more than this in a single hour, flag them
+        hourlyEarningsThreshold = 50000,
+        -- If player mines more than this ore in a single hour, flag them
+        hourlyMiningThreshold = 500,
+    },
+}
