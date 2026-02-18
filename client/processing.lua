@@ -131,6 +131,10 @@ executeSmelting = function(ore, amount, fuelType)
                 duration = 5000,
             })
         end
+
+        -- HUD: show XP gain and refresh
+        if result.xpGained and result.xpGained > 0 and ShowXpGain then ShowXpGain(result.xpGained) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Smelting failed', type = 'error' })
     end
@@ -253,6 +257,10 @@ startGemCutting = function(gem)
             type = result.quality == 'chipped' and 'error' or 'success',
             duration = 5000,
         })
+
+        -- HUD: show XP gain and refresh
+        if result.xpGained and ShowXpGain then ShowXpGain(result.xpGained) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Cutting failed', type = 'error' })
     end

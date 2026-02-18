@@ -41,6 +41,21 @@ function DB.AddEarnings(citizenId, amount)
     ]], { amount, citizenId })
 end
 
+--- Gets a player's rank based on total_earned (1 = highest earner).
+---@param citizenId string
+---@return number|nil rank
+function DB.GetPlayerRank(citizenId)
+    local result = MySQL.scalar.await([[
+        SELECT ranking FROM (
+            SELECT player_id,
+                   ROW_NUMBER() OVER (ORDER BY total_earned DESC) AS ranking
+            FROM mining_stats
+        ) ranked
+        WHERE player_id = ?
+    ]], { citizenId })
+    return result
+end
+
 --- Sets player level and experience directly (used on level-up recalculation).
 ---@param citizenId string
 ---@param level number

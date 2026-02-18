@@ -11,6 +11,76 @@
         <canvas id="minigame-canvas" width="300" height="300"></canvas>
         <div id="minigame-hint">Click or press <span>SPACE</span> to strike!</div>
     </div>
+
+    <!-- Mining HUD -->
+    <div id="mining-hud" class="hidden">
+        <div id="hud-zone">
+            <span id="hud-zone-icon">&#9874;</span>
+            <span id="hud-zone-name">---</span>
+        </div>
+        <div id="hud-level-row">
+            <span id="hud-level-badge">Lv <span id="hud-level">1</span></span>
+            <div id="hud-xp-bar-container">
+                <div id="hud-xp-bar-fill"></div>
+                <span id="hud-xp-text">0 / 100 XP</span>
+            </div>
+        </div>
+        <div id="hud-stats">
+            <div class="hud-stat">
+                <span class="hud-stat-icon">&#9878;</span>
+                <span id="hud-total-mined" class="hud-stat-value">0</span>
+            </div>
+            <div class="hud-stat">
+                <span class="hud-stat-icon">$</span>
+                <span id="hud-total-earned" class="hud-stat-value">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- XP gain floating text -->
+    <div id="xp-float" class="hidden">+0 XP</div>
+
+    <!-- Stats panel overlay -->
+    <div id="stats-panel" class="hidden">
+        <div id="stats-panel-inner">
+            <div id="stats-header">
+                <span id="stats-title">Mining Profile</span>
+                <span id="stats-close">&times;</span>
+            </div>
+            <div id="stats-level-section">
+                <div id="stats-level-circle">
+                    <span id="stats-level-num">1</span>
+                    <span id="stats-level-label">LEVEL</span>
+                </div>
+                <div id="stats-xp-info">
+                    <div id="stats-xp-bar-container">
+                        <div id="stats-xp-bar-fill"></div>
+                    </div>
+                    <span id="stats-xp-text">0 / 100 XP</span>
+                    <span id="stats-xp-next">100 XP to next level</span>
+                </div>
+            </div>
+            <div id="stats-grid">
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-total-mined">0</span>
+                    <span class="stats-card-label">Ore Mined</span>
+                </div>
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-total-earned">$0</span>
+                    <span class="stats-card-label">Total Earned</span>
+                </div>
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-rank">#--</span>
+                    <span class="stats-card-label">Server Rank</span>
+                </div>
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-total-xp">0</span>
+                    <span class="stats-card-label">Total XP</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="minigame.js"></script>
 </body>
 </html>

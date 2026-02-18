@@ -232,6 +232,8 @@ AddEventHandler('mining:client:startBlastMining', function(subZoneName, veinId)
             type = 'success',
             duration = 6000,
         })
+        if ShowXpGain then ShowXpGain(Config.Explosives.blastMining.xpReward) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Blast failed', type = 'error' })
     end
@@ -379,6 +381,8 @@ AddEventHandler('mining:client:startDemolition', function(subZoneName, targetTyp
             type = 'success',
             duration = 5000,
         })
+        if ShowXpGain then ShowXpGain(Config.Explosives.demolition.xpReward) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Demolition failed', type = 'error' })
     end
@@ -627,6 +631,8 @@ AddEventHandler('mining:client:startQuarryBlast', function(subZoneName, siteInde
             type = 'success',
             duration = 8000,
         })
+        if ShowXpGain then ShowXpGain(Config.Explosives.quarryBlasting.xpReward) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Quarry blast failed', type = 'error' })
     end

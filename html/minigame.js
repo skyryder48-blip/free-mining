@@ -273,3 +273,236 @@
         }
     });
 })();
+
+// -------------------------------------------------------
+// MINING HUD & STATS PANEL
+// -------------------------------------------------------
+
+(function () {
+    'use strict';
+
+    const hud = document.getElementById('mining-hud');
+    const hudZoneName = document.getElementById('hud-zone-name');
+    const hudLevel = document.getElementById('hud-level');
+    const hudXpBarFill = document.getElementById('hud-xp-bar-fill');
+    const hudXpText = document.getElementById('hud-xp-text');
+    const hudTotalMined = document.getElementById('hud-total-mined');
+    const hudTotalEarned = document.getElementById('hud-total-earned');
+    const xpFloat = document.getElementById('xp-float');
+
+    const statsPanel = document.getElementById('stats-panel');
+    const statsClose = document.getElementById('stats-close');
+    const statsLevelNum = document.getElementById('stats-level-num');
+    const statsXpBarFill = document.getElementById('stats-xp-bar-fill');
+    const statsXpText = document.getElementById('stats-xp-text');
+    const statsXpNext = document.getElementById('stats-xp-next');
+    const statsTotalMined = document.getElementById('stats-total-mined');
+    const statsTotalEarned = document.getElementById('stats-total-earned');
+    const statsRank = document.getElementById('stats-rank');
+    const statsTotalXp = document.getElementById('stats-total-xp');
+
+    let xpFloatTimer = null;
+
+    // -------------------------------------------------------
+    // NUMBER FORMATTING
+    // -------------------------------------------------------
+
+    function formatNumber(n) {
+        if (n == null) return '0';
+        n = Number(n);
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+        return n.toLocaleString();
+    }
+
+    function formatMoney(n) {
+        if (n == null) return '$0';
+        return '$' + formatNumber(n);
+    }
+
+    // -------------------------------------------------------
+    // HUD UPDATE
+    // -------------------------------------------------------
+
+    function updateHud(data) {
+        if (!data) return;
+
+        if (data.zoneName != null) {
+            hudZoneName.textContent = data.zoneName;
+        }
+
+        if (data.level != null) {
+            hudLevel.textContent = data.level;
+        }
+
+        if (data.xpPercent != null) {
+            hudXpBarFill.style.width = Math.min(100, data.xpPercent).toFixed(1) + '%';
+        }
+
+        if (data.xpCurrent != null && data.xpNeeded != null) {
+            hudXpText.textContent = data.xpCurrent + ' / ' + data.xpNeeded + ' XP';
+        }
+
+        if (data.totalMined != null) {
+            hudTotalMined.textContent = formatNumber(data.totalMined);
+        }
+
+        if (data.totalEarned != null) {
+            hudTotalEarned.textContent = formatNumber(data.totalEarned);
+        }
+    }
+
+    // -------------------------------------------------------
+    // STATS PANEL UPDATE
+    // -------------------------------------------------------
+
+    function updateStatsPanel(data) {
+        if (!data) return;
+
+        if (data.level != null) {
+            statsLevelNum.textContent = data.level;
+        }
+
+        if (data.xpPercent != null) {
+            statsXpBarFill.style.width = Math.min(100, data.xpPercent).toFixed(1) + '%';
+        }
+
+        if (data.xpCurrent != null && data.xpNeeded != null) {
+            statsXpText.textContent = data.xpCurrent + ' / ' + data.xpNeeded + ' XP';
+        }
+
+        if (data.xpToNext != null) {
+            statsXpNext.textContent = data.xpToNext + ' XP to next level';
+        }
+
+        if (data.totalMined != null) {
+            statsTotalMined.textContent = formatNumber(data.totalMined);
+        }
+
+        if (data.totalEarned != null) {
+            statsTotalEarned.textContent = formatMoney(data.totalEarned);
+        }
+
+        if (data.rank != null) {
+            statsRank.textContent = '#' + data.rank;
+        }
+
+        if (data.totalXp != null) {
+            statsTotalXp.textContent = formatNumber(data.totalXp);
+        }
+    }
+
+    // -------------------------------------------------------
+    // XP FLOAT ANIMATION
+    // -------------------------------------------------------
+
+    function showXpGain(amount) {
+        if (!amount || amount <= 0) return;
+
+        xpFloat.textContent = '+' + amount + ' XP';
+        xpFloat.classList.remove('animate', 'hidden');
+
+        // Force reflow to restart animation
+        void xpFloat.offsetWidth;
+        xpFloat.classList.add('animate');
+
+        if (xpFloatTimer) clearTimeout(xpFloatTimer);
+        xpFloatTimer = setTimeout(function () {
+            xpFloat.classList.remove('animate');
+            xpFloat.classList.add('hidden');
+            xpFloatTimer = null;
+        }, 1600);
+    }
+
+    // -------------------------------------------------------
+    // LEVEL UP EFFECT
+    // -------------------------------------------------------
+
+    function triggerLevelUp() {
+        hud.classList.remove('level-up');
+        void hud.offsetWidth;
+        hud.classList.add('level-up');
+
+        setTimeout(function () {
+            hud.classList.remove('level-up');
+        }, 4600);
+    }
+
+    // -------------------------------------------------------
+    // STATS PANEL CLOSE
+    // -------------------------------------------------------
+
+    statsClose.addEventListener('click', function () {
+        statsPanel.classList.add('hidden');
+        fetch('https://free-mining/statsClose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.code === 'Escape' && !statsPanel.classList.contains('hidden')) {
+            e.preventDefault();
+            statsPanel.classList.add('hidden');
+            fetch('https://free-mining/statsClose', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+        }
+    });
+
+    // -------------------------------------------------------
+    // NUI MESSAGE HANDLER
+    // -------------------------------------------------------
+
+    window.addEventListener('message', function (event) {
+        const data = event.data;
+
+        switch (data.action) {
+            case 'showHud':
+                // Apply position class
+                hud.className = '';
+                if (data.position) {
+                    hud.classList.add('hud-' + data.position.replace(/\s+/g, '-'));
+                    xpFloat.className = '';
+                    xpFloat.classList.add('hud-' + data.position.replace(/\s+/g, '-'));
+                    xpFloat.classList.add('hidden');
+                }
+                if (data.compact) {
+                    hud.classList.add('compact');
+                }
+                hud.classList.add('show');
+                updateHud(data);
+                break;
+
+            case 'hideHud':
+                hud.classList.add('hidden');
+                hud.className = 'hidden';
+                break;
+
+            case 'updateHud':
+                updateHud(data);
+                break;
+
+            case 'xpGain':
+                showXpGain(data.amount);
+                break;
+
+            case 'levelUp':
+                triggerLevelUp();
+                updateHud(data);
+                break;
+
+            case 'showStats':
+                updateStatsPanel(data);
+                statsPanel.classList.remove('hidden');
+                break;
+
+            case 'hideStats':
+                statsPanel.classList.add('hidden');
+                break;
+        }
+    });
+})();

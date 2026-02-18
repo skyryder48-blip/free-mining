@@ -79,6 +79,9 @@ local function initZones()
                         type = notifyType,
                         duration = 5000,
                     })
+
+                    -- Show mining HUD (Phase 6)
+                    if OnMiningZoneEnter then OnMiningZoneEnter() end
                 end,
                 onExit = function()
                     if activeZone == subZone.name then
@@ -86,6 +89,8 @@ local function initZones()
                         activeZoneKey = nil
                         -- Unload veins when leaving sub-zone
                         UnloadActiveVeins()
+                        -- Hide mining HUD (Phase 6)
+                        if OnMiningZoneExit then OnMiningZoneExit() end
                     end
                 end,
             })
@@ -154,6 +159,15 @@ local function initInteractionPoints()
                 distance = 2.5,
                 onSelect = function()
                     TriggerEvent('mining:client:openShop')
+                end,
+            },
+            {
+                name = 'mining_stats',
+                label = 'Mining Profile',
+                icon = 'fas fa-chart-bar',
+                distance = 2.5,
+                onSelect = function()
+                    if OpenStatsPanel then OpenStatsPanel() end
                 end,
             },
         })
@@ -232,6 +246,7 @@ local function cleanup()
     CleanupVeins()
     CleanupHazards()
     if CleanupExplosives then CleanupExplosives() end
+    if CleanupHud then CleanupHud() end
     activeZone = nil
     activeZoneKey = nil
 end

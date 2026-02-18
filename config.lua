@@ -816,6 +816,33 @@ Config.Leveling = {
 }
 
 -----------------------------------------------------------
+-- HUD & PROGRESSION UI (Phase 6)
+-----------------------------------------------------------
+Config.HUD = {
+    -- Show the mining HUD while inside a mining zone
+    enabled = true,
+
+    -- Position: 'top-left', 'top-right', 'bottom-left', 'bottom-right'
+    position = 'bottom-right',
+
+    -- Refresh interval (ms) for stats sync from server
+    refreshInterval = 15000,
+
+    -- Show HUD on zone enter, hide on zone exit
+    autoToggle = true,
+
+    -- Compact mode: only shows level and XP bar (no stats)
+    compactMode = false,
+
+    -- XP notification on gain (shows +XP floating text)
+    showXpGain = true,
+
+    -- Level-up celebration effect
+    levelUpEffect = true,
+    levelUpSound = true,
+}
+
+-----------------------------------------------------------
 -- SAFETY EQUIPMENT
 -----------------------------------------------------------
 

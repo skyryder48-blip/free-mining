@@ -13,6 +13,7 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/hud.lua',
     'client/veins.lua',
     'client/zones.lua',
     'client/mining.lua',

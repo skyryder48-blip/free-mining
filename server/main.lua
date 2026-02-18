@@ -333,6 +333,7 @@ lib.callback.register('mining:server:extract', function(src, data)
         minigameResult = minigameResult,
         veinQuality = vein.quality,
         veinRemaining = math.max(0, vein.remaining - 1),
+        xpGained = 10,
     }
 end)
 
@@ -397,6 +398,7 @@ lib.callback.register('mining:server:sell', function(src, data)
         item = item,
         amount = amount,
         total = total,
+        totalEarned = total,
     }
 end)
 
@@ -522,4 +524,19 @@ lib.callback.register('mining:server:getStats', function(src)
     local citizenId = getCitizenId(src)
     if not citizenId then return nil end
     return DB.GetStats(citizenId)
+end)
+
+--- Returns player mining stats with server rank.
+lib.callback.register('mining:server:getStatsWithRank', function(src)
+    local citizenId = getCitizenId(src)
+    if not citizenId then return nil end
+
+    local stats = DB.GetStats(citizenId)
+    if not stats then return nil end
+
+    -- Calculate rank by total_earned (higher = better rank)
+    local rank = DB.GetPlayerRank(citizenId)
+    stats.rank = rank or '--'
+
+    return stats
 end)

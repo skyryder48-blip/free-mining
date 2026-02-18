@@ -153,6 +153,7 @@ lib.callback.register('mining:server:smelt', function(src, data)
         oreConsumed = oreConsumed,
         minigameResult = minigameResult,
         message = message,
+        xpGained = outputAmount > 0 and 15 or 0,
     }
 end)
 
@@ -242,5 +243,6 @@ lib.callback.register('mining:server:cutGem', function(src, data)
         quality = quality,
         qualityLabel = qualityLabel,
         qualityMultiplier = qualityMul,
+        xpGained = 20,
     }
 end)
