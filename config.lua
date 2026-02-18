@@ -1193,3 +1193,152 @@ Config.Explosives = {
         flashEffect = 'SwitchHUDIn',
     },
 }
+
+-----------------------------------------------------------
+-- ADMIN & ECONOMY (Phase 8)
+-----------------------------------------------------------
+
+Config.Admin = {
+    -- ACE permission required for admin commands
+    acePermission = 'mining.admin',
+
+    -- Economy multipliers (adjustable at runtime via admin commands)
+    -- These are defaults; server/admin.lua keeps live overrides in memory.
+    defaultMultipliers = {
+        xp = 1.0,          -- global XP multiplier
+        yield = 1.0,       -- global ore yield multiplier
+        sellPrice = 1.0,   -- global sell price multiplier
+        hazardRate = 1.0,  -- global hazard chance multiplier
+        rareChance = 1.0,  -- global rare find chance multiplier
+    },
+}
+
+-----------------------------------------------------------
+-- ANTI-CHEAT (Phase 8)
+-----------------------------------------------------------
+
+Config.AntiCheat = {
+    enabled = true,
+
+    -- Position validation: max distance (units) from vein to accept extraction
+    maxMiningDistance = 8.0,
+
+    -- Per-vein cooldown: seconds before same player can mine same vein
+    perVeinCooldown = 3,
+
+    -- Rate limits (actions per window)
+    rateLimits = {
+        -- Max extractions per 60 seconds
+        mining = { max = 20, window = 60 },
+        -- Max sells per 60 seconds
+        selling = { max = 15, window = 60 },
+        -- Max purchases per 60 seconds
+        purchase = { max = 10, window = 60 },
+    },
+
+    -- Flag thresholds: when exceeded, flag player for review
+    flags = {
+        -- If player earns more than this in a single hour, flag them
+        hourlyEarningsThreshold = 50000,
+        -- If player mines more than this ore in a single hour, flag them
+        hourlyMiningThreshold = 500,
+    },
+}
+
+-----------------------------------------------------------
+-- SPECIALIZATIONS (Phase 9)
+-----------------------------------------------------------
+-- Players choose a specialization at level 5.
+-- Each spec unlocks a unique skill tree.
+
+Config.Specializations = {
+    levelRequired = 5,
+    specs = {
+        extraction = {
+            label = 'Extraction',
+            description = 'Master the art of ore extraction. Better yields, less wear, and rare finds.',
+            icon = 'fas fa-hammer',
+        },
+        demolitions = {
+            label = 'Demolitions',
+            description = 'Explosive expert. Bigger blasts, more rubble, and resource conservation.',
+            icon = 'fas fa-bomb',
+        },
+        geology = {
+            label = 'Geology',
+            description = 'Deep earth knowledge. Better gems, hazard resistance, and discovery chances.',
+            icon = 'fas fa-mountain',
+        },
+    },
+}
+
+-----------------------------------------------------------
+-- SKILL TREES (Phase 9)
+-----------------------------------------------------------
+-- 1 skill point per 2 levels (10 points at level 20).
+-- Each tree costs 11 total points to fill.
+-- Skills may require a prerequisite skill to unlock.
+
+Config.SkillTrees = {
+    pointsPerLevels = 2, -- earn 1 skill point every N levels
+
+    extraction = {
+        { key = 'efficient_mining',  label = 'Efficient Mining',  description = '-10% tool wear',                cost = 1, effect = { wearReduction = 0.10 } },
+        { key = 'quality_eye',       label = 'Quality Eye',       description = '+10% ore quality bonus',         cost = 1, effect = { qualityBonus = 0.10 } },
+        { key = 'heavy_hitter',      label = 'Heavy Hitter',      description = '+15% yield',                    cost = 2, requires = 'efficient_mining', effect = { yieldBonus = 0.15 } },
+        { key = 'master_smelter',    label = 'Master Smelter',    description = 'No coal needed for smelting',   cost = 3, requires = 'quality_eye', effect = { noCoalSmelting = true } },
+        { key = 'ore_whisperer',     label = 'Ore Whisperer',     description = '+25% rare find chance',         cost = 4, requires = 'heavy_hitter', effect = { rareChanceBonus = 0.25 } },
+    },
+
+    demolitions = {
+        { key = 'steady_hands',  label = 'Steady Hands',  description = '+10% blast radius',              cost = 1, effect = { blastRadiusBonus = 0.10 } },
+        { key = 'powder_keg',    label = 'Powder Keg',    description = '+1 scatter pickup per blast',    cost = 1, effect = { extraScatter = 1 } },
+        { key = 'shaped_charge', label = 'Shaped Charge', description = '-1 charge for demolition',       cost = 2, requires = 'steady_hands', effect = { chargeDiscount = 1 } },
+        { key = 'chain_reaction',label = 'Chain Reaction',description = '+30% quarry rubble count',       cost = 3, requires = 'powder_keg', effect = { quarryRubbleBonus = 0.30 } },
+        { key = 'master_blaster',label = 'Master Blaster',description = '50% chance to save dynamite',    cost = 4, requires = 'shaped_charge', effect = { dynamiteSaveChance = 0.50 } },
+    },
+
+    geology = {
+        { key = 'rock_reader',       label = 'Rock Reader',       description = 'See vein quality from further', cost = 1, effect = { discoveryRangeBonus = 0.50 } },
+        { key = 'gem_sense',         label = 'Gem Sense',         description = '+15% gem cutting quality',      cost = 1, effect = { gemCuttingBonus = 0.15 } },
+        { key = 'earths_bounty',     label = "Earth's Bounty",    description = '+20% rare find chance',         cost = 2, requires = 'rock_reader', effect = { rareChanceBonus = 0.20 } },
+        { key = 'hazard_awareness',  label = 'Hazard Awareness',  description = '-30% hazard damage',            cost = 3, requires = 'gem_sense', effect = { hazardDamageReduction = 0.30 } },
+        { key = 'motherlode',        label = 'Motherlode',        description = '5% chance for double yield',    cost = 4, requires = 'earths_bounty', effect = { doubleOreChance = 0.05 } },
+    },
+}
+
+-----------------------------------------------------------
+-- PRESTIGE (Phase 9)
+-----------------------------------------------------------
+-- Available at max level via the Shop NPC only.
+-- Resets level, XP, and skills. Keeps spec, achievements, lifetime stats.
+
+Config.Prestige = {
+    maxPrestige = 5,
+    levelRequired = 20,
+    xpBonusPerPrestige = 0.10, -- +10% XP per prestige level
+}
+
+-----------------------------------------------------------
+-- ACHIEVEMENTS (Phase 9)
+-----------------------------------------------------------
+-- Milestone badges with XP rewards.
+-- check types: 'total_mined', 'total_earned', 'discoveries', 'level', 'event'
+-- 'event' uses mining_counters table with the specified event key.
+
+Config.Achievements = {
+    list = {
+        { key = 'first_strike',    label = 'First Strike',       description = 'Mine your first ore',            xpReward = 10,  check = 'total_mined',  target = 1 },
+        { key = 'hundred_haul',    label = 'Hundred Haul',       description = 'Mine 100 ore',                   xpReward = 25,  check = 'total_mined',  target = 100 },
+        { key = 'thousand_tons',   label = 'Thousand Tons',      description = 'Mine 1,000 ore',                 xpReward = 50,  check = 'total_mined',  target = 1000 },
+        { key = 'rich_vein',       label = 'Rich Vein',          description = 'Mine from a quality 90+ vein',   xpReward = 38,  check = 'event', event = 'rich_vein', target = 1 },
+        { key = 'treasure_hunter', label = 'Treasure Hunter',    description = 'Find 5 rare items',              xpReward = 100, check = 'discoveries',  target = 5 },
+        { key = 'smelter',         label = 'Smelter',            description = 'Smelt 50 ingots',                xpReward = 25,  check = 'event', event = 'smelt_count', target = 50 },
+        { key = 'jeweler',         label = 'Jeweler',            description = 'Cut 25 gems',                    xpReward = 38,  check = 'event', event = 'cut_count', target = 25 },
+        { key = 'demo_expert',     label = 'Demolitions Expert', description = 'Blast 25 veins',                 xpReward = 50,  check = 'event', event = 'blast_count', target = 25 },
+        { key = 'survivor',        label = 'Survivor',           description = 'Clear 10 hazard obstacles',      xpReward = 38,  check = 'event', event = 'hazard_cleared', target = 10 },
+        { key = 'contract_worker', label = 'Contract Worker',    description = 'Complete 20 contracts',          xpReward = 50,  check = 'event', event = 'contracts_completed', target = 20 },
+        { key = 'capitalist',      label = 'Capitalist',         description = 'Earn $50,000',                   xpReward = 75,  check = 'total_earned', target = 50000 },
+        { key = 'max_level',       label = 'Max Level',          description = 'Reach level 20',                 xpReward = 100, check = 'level',        target = 20 },
+    },
+}

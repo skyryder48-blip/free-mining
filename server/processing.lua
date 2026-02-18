@@ -52,8 +52,9 @@ lib.callback.register('mining:server:smelt', function(src, data)
         return { success = false, reason = 'Not enough ore' }
     end
 
-    -- Check fuel
-    if fuelType == 'coal' then
+    -- Check fuel (Phase 9: Master Smelter skill bypasses coal)
+    local skipCoal = HasPlayerSkillEffect and HasPlayerSkillEffect(citizenId, 'noCoalSmelting')
+    if fuelType == 'coal' and not skipCoal then
         local coalNeeded = Config.Smelting.coalPerBatch
         local coalCount = exports.ox_inventory:Search(src, 'count', 'coal')
         if not coalCount or coalCount < coalNeeded then
@@ -74,7 +75,8 @@ lib.callback.register('mining:server:smelt', function(src, data)
         if not foundSlot then
             return { success = false, reason = 'No propane with fuel remaining' }
         end
-    else
+    elseif fuelType ~= 'coal' then
+        -- fuelType is 'coal' with skipCoal=true falls through here; only reject truly invalid types
         return { success = false, reason = 'Invalid fuel type' }
     end
 
@@ -85,15 +87,12 @@ lib.callback.register('mining:server:smelt', function(src, data)
     local message = ''
 
     if minigameResult == 'green' then
-        -- Perfect: 1:1 ore to ingot
         outputAmount = amount
         message = 'Perfect smelt!'
     elseif minigameResult == 'yellow' then
-        -- Partial: lose 1 ore from batch
         outputAmount = math.max(1, amount - 1)
         message = 'Decent smelt. Lost 1 ore to impurities.'
     else
-        -- Failed: batch ruined
         outputAmount = 0
         message = 'Temperature control failed! Batch ruined.'
     end
@@ -110,7 +109,7 @@ lib.callback.register('mining:server:smelt', function(src, data)
     exports.ox_inventory:RemoveItem(src, oreItem, oreConsumed)
 
     -- Consume fuel
-    if fuelType == 'coal' then
+    if fuelType == 'coal' and not skipCoal then
         exports.ox_inventory:RemoveItem(src, 'coal', Config.Smelting.coalPerBatch)
     elseif fuelType == 'propane_canister' then
         local propaneSlots = exports.ox_inventory:Search(src, 'slots', 'propane_canister')
@@ -140,10 +139,17 @@ lib.callback.register('mining:server:smelt', function(src, data)
         exports.ox_inventory:AddItem(src, outputItem, outputAmount)
     end
 
-    -- Track stats and check level-up
+    -- Track stats and check level-up (apply prestige XP)
     if outputAmount > 0 then
-        DB.AddMiningProgress(citizenId, 15, 0) -- 15 XP for smelting, 0 additional ore mined
+        local prestigeMul = GetPrestigeXpMultiplier and GetPrestigeXpMultiplier(citizenId) or 1.0
+        local xpGained = math.floor(15 * prestigeMul)
+        DB.AddMiningProgress(citizenId, xpGained, 0)
         checkLevelUp(src, citizenId)
+
+        -- Track smelt achievement counter (Phase 9)
+        if TrackAchievementEvent then
+            TrackAchievementEvent(src, citizenId, 'smelt_count', outputAmount)
+        end
     end
 
     -- Advance contracts (Phase 7)
@@ -154,14 +160,16 @@ lib.callback.register('mining:server:smelt', function(src, data)
         end
     end
 
+    local prestigeMul = GetPrestigeXpMultiplier and GetPrestigeXpMultiplier(citizenId) or 1.0
+
     return {
         success = true,
         outputItem = outputItem,
         outputAmount = outputAmount,
         oreConsumed = oreConsumed,
         minigameResult = minigameResult,
-        message = message,
-        xpGained = outputAmount > 0 and 15 or 0,
+        message = skipCoal and (message .. ' (No coal needed!)') or message,
+        xpGained = outputAmount > 0 and math.floor(15 * prestigeMul) or 0,
     }
 end)
 
@@ -219,6 +227,15 @@ lib.callback.register('mining:server:cutGem', function(src, data)
         qualityLabel = 'Good'
     end
 
+    -- Apply Gem Sense skill bonus (Phase 9: upgrades chipped to good)
+    if quality == 'chipped' and GetPlayerSkillBonus then
+        local gemBonus = GetPlayerSkillBonus(citizenId, 'gemCuttingBonus')
+        if gemBonus > 0 and math.random() < gemBonus then
+            quality = 'good'
+            qualityLabel = 'Good'
+        end
+    end
+
     local qualityMul = Config.GemCutting.qualityMultiplier[quality]
     local outputItem = oreDef.output
 
@@ -241,9 +258,16 @@ lib.callback.register('mining:server:cutGem', function(src, data)
         description = qualityLabel .. ' quality',
     })
 
-    -- Track stats and check level-up
-    DB.AddMiningProgress(citizenId, 20, 0) -- 20 XP for cutting
+    -- Track stats and check level-up (apply prestige XP)
+    local prestigeMul = GetPrestigeXpMultiplier and GetPrestigeXpMultiplier(citizenId) or 1.0
+    local xpGained = math.floor(20 * prestigeMul)
+    DB.AddMiningProgress(citizenId, xpGained, 0)
     checkLevelUp(src, citizenId)
+
+    -- Track cut achievement counter (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'cut_count', 1)
+    end
 
     -- Advance contracts (Phase 7)
     if AdvanceContracts then
@@ -256,6 +280,6 @@ lib.callback.register('mining:server:cutGem', function(src, data)
         quality = quality,
         qualityLabel = qualityLabel,
         qualityMultiplier = qualityMul,
-        xpGained = 20,
+        xpGained = xpGained,
     }
 end)

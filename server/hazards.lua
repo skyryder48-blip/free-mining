@@ -126,7 +126,8 @@ function RollHazard(subZoneName)
     if not subZone then return nil end
 
     local hazardWeight = subZone.hazardWeight or 1.0
-    local chance = Config.Hazards.baseChance * hazardWeight
+    local hazardMul = GetMultiplier and GetMultiplier('hazardRate') or 1.0
+    local chance = Config.Hazards.baseChance * hazardWeight * hazardMul
 
     local roll = math.random(1, 100)
     if roll > chance then return nil end
@@ -273,6 +274,11 @@ lib.callback.register('mining:server:mineBoulder', function(src, data)
     -- Award XP for hazard cleanup
     DB.AddMiningProgress(citizenId, 5, actualStone)
 
+    -- Track hazard cleared for achievements (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'hazard_cleared', 1)
+    end
+
     return {
         success = true,
         stoneAmount = actualStone,
@@ -358,7 +364,17 @@ lib.callback.register('mining:server:gasCheck', function(src, subZoneName)
     end
 
     local protected = CheckRespirator(src)
-    return { active = true, protected = protected }
+
+    -- Phase 9: Hazard Awareness skill reduces damage
+    local damageReduction = 0
+    if GetPlayerSkillBonus then
+        local citizenId = getCitizenId(src)
+        if citizenId then
+            damageReduction = GetPlayerSkillBonus(citizenId, 'hazardDamageReduction')
+        end
+    end
+
+    return { active = true, protected = protected, damageReduction = damageReduction }
 end)
 
 -----------------------------------------------------------
@@ -450,6 +466,11 @@ lib.callback.register('mining:server:mineDebris', function(src, data)
 
     -- Award XP for hazard cleanup
     DB.AddMiningProgress(citizenId, 5, actualStone)
+
+    -- Track hazard cleared for achievements (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'hazard_cleared', 1)
+    end
 
     return {
         success = true,

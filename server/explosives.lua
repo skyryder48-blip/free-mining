@@ -297,8 +297,17 @@ lib.callback.register('mining:server:blastMine', function(src, data)
         return { success = false, reason = 'You need a detonator' }
     end
 
-    -- Consume dynamite
-    exports.ox_inventory:RemoveItem(src, 'dynamite', cfg.dynamitePerBlast)
+    -- Consume dynamite (Phase 9: Master Blaster may save dynamite)
+    local dynamiteSaved = false
+    if GetPlayerSkillBonus then
+        local saveChance = GetPlayerSkillBonus(citizenId, 'dynamiteSaveChance')
+        if saveChance > 0 and math.random() < saveChance then
+            dynamiteSaved = true
+        end
+    end
+    if not dynamiteSaved then
+        exports.ox_inventory:RemoveItem(src, 'dynamite', cfg.dynamitePerBlast)
+    end
 
     -- Get vein data for yield calculation
     local oreType = vein.oreType
@@ -332,8 +341,14 @@ lib.callback.register('mining:server:blastMine', function(src, data)
         DepleteVein(data.veinId)
     end
 
-    -- Determine scatter count
+    -- Determine scatter count (Phase 9: Powder Keg adds extra scatter)
     local scatterCount = math.random(cfg.scatterCount.min, cfg.scatterCount.max)
+    if GetPlayerSkillBonus then
+        local extraScatter = GetPlayerSkillBonus(citizenId, 'extraScatter')
+        if extraScatter > 0 then
+            scatterCount = scatterCount + math.floor(extraScatter)
+        end
+    end
     local yieldPerPickup = math.max(1, math.floor(totalOre / scatterCount + 0.5))
 
     -- Check for gas explosion
@@ -361,6 +376,11 @@ lib.callback.register('mining:server:blastMine', function(src, data)
     if AdvanceContracts then
         AdvanceContracts(src, citizenId, 'blast_veins', 1, nil)
         AdvanceContracts(src, citizenId, 'mine_ore', totalOre, nil)
+    end
+
+    -- Track blast count for achievements (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'blast_count', 1)
     end
 
     -- Roll for hazard (with multiplier)
@@ -421,10 +441,16 @@ lib.callback.register('mining:server:demolitionBlast', function(src, data)
     local subZoneName = data.subZoneName
     local targetType = data.targetType
 
-    -- Determine charge cost
+    -- Determine charge cost (Phase 9: Shaped Charge reduces cost)
     local chargesNeeded = cfg.chargesPerObstacle
     if targetType == 'passage' then
         chargesNeeded = cfg.chargesPerPassage
+    end
+    if GetPlayerSkillBonus then
+        local discount = GetPlayerSkillBonus(citizenId, 'chargeDiscount')
+        if discount > 0 then
+            chargesNeeded = math.max(1, chargesNeeded - math.floor(discount))
+        end
     end
 
     -- Check blasting charges
@@ -555,9 +581,15 @@ lib.callback.register('mining:server:quarryBlast', function(src, data)
     end
     local avgMod = totalMod / #qualities
 
-    -- Determine rubble count based on placement quality
+    -- Determine rubble count based on placement quality (Phase 9: Chain Reaction bonus)
     local baseCount = math.random(cfg.rubbleCount.min, cfg.rubbleCount.max)
     local rubbleCount = math.max(cfg.rubbleCount.min, math.floor(baseCount * avgMod + 0.5))
+    if GetPlayerSkillBonus then
+        local rubbleBonus = GetPlayerSkillBonus(citizenId, 'quarryRubbleBonus')
+        if rubbleBonus > 0 then
+            rubbleCount = math.floor(rubbleCount * (1 + rubbleBonus) + 0.5)
+        end
+    end
 
     -- Get sub-zone data for ore distribution
     local subZone = findSubZone(subZoneName)

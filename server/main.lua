@@ -123,9 +123,10 @@ end
 
 --- Checks if a player should level up based on accumulated XP.
 --- Called after awarding XP. Notifies the player on level-up.
+--- Global: called from processing.lua, contracts.lua, achievements.lua.
 ---@param src number
 ---@param citizenId string
-local function checkLevelUp(src, citizenId)
+function checkLevelUp(src, citizenId)
     local stats = DB.GetStats(citizenId)
     if not stats then return end
 
@@ -242,6 +243,32 @@ exports.ox_inventory:registerHook('usingItem', function(payload)
 end, { itemFilter = { drill_bit = true } })
 
 -----------------------------------------------------------
+-- PER-VEIN COOLDOWNS (Phase 8)
+-----------------------------------------------------------
+
+local veinCooldowns = {} -- veinCooldowns[veinId][src] = timestamp
+
+--- Checks and sets per-vein cooldown for a player.
+---@param veinId number
+---@param src number
+---@return boolean passed
+local function checkVeinCooldown(veinId, src)
+    if not Config.AntiCheat or not Config.AntiCheat.enabled then return true end
+
+    local cd = Config.AntiCheat.perVeinCooldown or 3
+    local now = os.time()
+
+    if not veinCooldowns[veinId] then veinCooldowns[veinId] = {} end
+    local lastMined = veinCooldowns[veinId][src]
+    if lastMined and (now - lastMined) < cd then
+        return false
+    end
+
+    veinCooldowns[veinId][src] = now
+    return true
+end
+
+-----------------------------------------------------------
 -- MINING CALLBACK
 -----------------------------------------------------------
 
@@ -274,6 +301,38 @@ lib.callback.register('mining:server:extract', function(src, data)
         return { success = false, reason = 'This vein is depleted' }
     end
 
+    -- Per-vein cooldown (Phase 8)
+    if not checkVeinCooldown(veinId, src) then
+        return { success = false, reason = 'This vein needs a moment to settle' }
+    end
+
+    -- Server-side position validation (Phase 8)
+    if Config.AntiCheat and Config.AntiCheat.enabled then
+        local ped = GetPlayerPed(src)
+        if ped and ped ~= 0 then
+            local playerCoords = GetEntityCoords(ped)
+            local dx = playerCoords.x - vein.coords.x
+            local dy = playerCoords.y - vein.coords.y
+            local dz = playerCoords.z - vein.coords.z
+            local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if dist > Config.AntiCheat.maxMiningDistance then
+                -- Flag player for possible teleport mining
+                if FlagPlayer then
+                    FlagPlayer(citizenId, 'distance', ('Mined vein %d from %.1f units away'):format(veinId, dist))
+                end
+                return { success = false, reason = 'Too far from vein' }
+            end
+        end
+    end
+
+    -- Anti-cheat rate limit (Phase 8)
+    if RecordAction then
+        local allowed = RecordAction(citizenId, 'mining')
+        if not allowed then
+            return { success = false, reason = 'Mining too frequently' }
+        end
+    end
+
     -- Get ore definition from vein's ore type
     local oreType = vein.oreType
     local oreDef = Config.Ores[oreType]
@@ -291,8 +350,36 @@ lib.callback.register('mining:server:extract', function(src, data)
     local subZoneName = data.subZoneName
     local zoneName = FindZoneKey(subZoneName)
 
+    -- Apply Quality Eye skill bonus to effective vein quality (Phase 9)
+    local effectiveQuality = vein.quality
+    if GetPlayerSkillBonus then
+        local qualityBonus = GetPlayerSkillBonus(citizenId, 'qualityBonus')
+        if qualityBonus > 0 then
+            effectiveQuality = math.min(100, effectiveQuality * (1 + qualityBonus))
+        end
+    end
+
     -- Calculate yield (includes vein quality and zone modifier)
-    local amount = calculateYield(mode, minigameResult, vein.quality, zoneName)
+    local amount = calculateYield(mode, minigameResult, effectiveQuality, zoneName)
+
+    -- Apply global yield multiplier (Phase 8)
+    if GetMultiplier then
+        amount = math.max(1, math.floor(amount * GetMultiplier('yield') + 0.5))
+    end
+
+    -- Apply skill-based yield bonus (Phase 9: Heavy Hitter)
+    if GetPlayerSkillBonus then
+        local yieldBonus = GetPlayerSkillBonus(citizenId, 'yieldBonus')
+        if yieldBonus > 0 then
+            amount = math.max(1, math.floor(amount * (1 + yieldBonus) + 0.5))
+        end
+
+        -- Motherlode: chance for double yield
+        local doubleChance = GetPlayerSkillBonus(citizenId, 'doubleOreChance')
+        if doubleChance > 0 and math.random() < doubleChance then
+            amount = amount * 2
+        end
+    end
 
     -- Check inventory space
     if not exports.ox_inventory:CanCarryItem(src, oreType, amount) then
@@ -303,6 +390,15 @@ lib.callback.register('mining:server:extract', function(src, data)
     local modeDef = Config.MiningModes[mode]
     local baseWear = 3
     local wearAmount = math.max(1, math.floor(baseWear * modeDef.wearMod + 0.5))
+
+    -- Apply skill-based wear reduction (Phase 9: Efficient Mining)
+    if GetPlayerSkillBonus then
+        local wearReduction = GetPlayerSkillBonus(citizenId, 'wearReduction')
+        if wearReduction > 0 then
+            wearAmount = math.max(1, math.floor(wearAmount * (1 - wearReduction) + 0.5))
+        end
+    end
+
     degradeTool(src, toolSlot, toolName, wearAmount)
 
     -- Deplete vein by 1 extraction
@@ -311,9 +407,18 @@ lib.callback.register('mining:server:extract', function(src, data)
     -- Award ore
     exports.ox_inventory:AddItem(src, oreType, amount)
 
-    -- Track stats and check level-up
-    DB.AddMiningProgress(citizenId, 10, amount)
+    -- Track stats and check level-up (apply XP + prestige multipliers)
+    local baseXp = 10
+    local xpMul = GetMultiplier and GetMultiplier('xp') or 1.0
+    local prestigeMul = GetPrestigeXpMultiplier and GetPrestigeXpMultiplier(citizenId) or 1.0
+    local xpGained = math.floor(baseXp * xpMul * prestigeMul)
+    DB.AddMiningProgress(citizenId, xpGained, amount)
     checkLevelUp(src, citizenId)
+
+    -- Track hourly stats for anti-cheat
+    if TrackHourlyStats then
+        TrackHourlyStats(citizenId, amount, 0)
+    end
 
     -- Roll for hazard after successful extraction
     local hazardType = RollHazard(subZoneName)
@@ -328,7 +433,7 @@ lib.callback.register('mining:server:extract', function(src, data)
     -- Roll for rare find (Phase 7)
     local rareFind = nil
     if RollRareFind then
-        local rareKey = RollRareFind(mode, minigameResult, vein.quality)
+        local rareKey = RollRareFind(mode, minigameResult, vein.quality, citizenId)
         if rareKey then
             rareFind = ProcessRareFind(src, citizenId, rareKey, zoneName)
         end
@@ -348,6 +453,15 @@ lib.callback.register('mining:server:extract', function(src, data)
         end
     end
 
+    -- Track achievements (Phase 9)
+    if CheckAchievements then
+        -- Rich vein achievement: quality 90+
+        if vein.quality >= 90 and TrackAchievementEvent then
+            TrackAchievementEvent(src, citizenId, 'rich_vein', 1)
+        end
+        CheckAchievements(src, citizenId)
+    end
+
     return {
         success = true,
         oreType = oreType,
@@ -356,7 +470,7 @@ lib.callback.register('mining:server:extract', function(src, data)
         minigameResult = minigameResult,
         veinQuality = vein.quality,
         veinRemaining = math.max(0, vein.remaining - 1),
-        xpGained = 10,
+        xpGained = xpGained,
         rareFind = rareFind,
     }
 end)
@@ -415,7 +529,9 @@ lib.callback.register('mining:server:sell', function(src, data)
         rareBonusMul = GetRareSellBonus(citizenId, item)
     end
 
-    local total = math.floor(price * amount * qualityMul * rareBonusMul)
+    -- Apply global sell price multiplier (Phase 8)
+    local sellMul = GetMultiplier and GetMultiplier('sellPrice') or 1.0
+    local total = math.floor(price * amount * qualityMul * rareBonusMul * sellMul)
     local player = exports.qbx_core:GetPlayer(src)
     if player then
         player.Functions.AddMoney('cash', total, 'mining-sale')
@@ -423,9 +539,19 @@ lib.callback.register('mining:server:sell', function(src, data)
 
     DB.AddEarnings(citizenId, total)
 
+    -- Track hourly earnings for anti-cheat
+    if TrackHourlyStats then
+        TrackHourlyStats(citizenId, 0, total)
+    end
+
     -- Advance earn_cash contracts (Phase 7)
     if AdvanceContracts then
         AdvanceContracts(src, citizenId, 'earn_cash', total, nil)
+    end
+
+    -- Track achievements (Phase 9)
+    if CheckAchievements then
+        CheckAchievements(src, citizenId)
     end
 
     return {
@@ -559,7 +685,15 @@ end)
 lib.callback.register('mining:server:getStats', function(src)
     local citizenId = getCitizenId(src)
     if not citizenId then return nil end
-    return DB.GetStats(citizenId)
+    local stats = DB.GetStats(citizenId)
+    if not stats then return nil end
+
+    -- Add prestige title for HUD display (Phase 9)
+    if GetPlayerPrestige then
+        stats.prestige = GetPlayerPrestige(citizenId)
+    end
+
+    return stats
 end)
 
 --- Returns player mining stats with server rank.
@@ -570,9 +704,23 @@ lib.callback.register('mining:server:getStatsWithRank', function(src)
     local stats = DB.GetStats(citizenId)
     if not stats then return nil end
 
-    -- Calculate rank by total_earned (higher = better rank)
     local rank = DB.GetPlayerRank(citizenId)
     stats.rank = rank or '--'
+
+    -- Add Phase 9 data
+    if GetPlayerPrestige then
+        stats.prestige = GetPlayerPrestige(citizenId)
+    end
+    if GetPlayerSpecialization then
+        stats.specialization = GetPlayerSpecialization(citizenId)
+    end
+
+    local achievementCount = 0
+    if DB.GetAchievements then
+        achievementCount = #DB.GetAchievements(citizenId)
+    end
+    stats.achievementCount = achievementCount
+    stats.achievementTotal = Config.Achievements and #Config.Achievements.list or 0
 
     return stats
 end)

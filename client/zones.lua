@@ -170,6 +170,15 @@ local function initInteractionPoints()
                     if OpenStatsPanel then OpenStatsPanel() end
                 end,
             },
+            {
+                name = 'mining_prestige',
+                label = 'Prestige',
+                icon = 'fas fa-star',
+                distance = 2.5,
+                onSelect = function()
+                    if OpenPrestigeMenu then OpenPrestigeMenu() end
+                end,
+            },
         })
     end
 

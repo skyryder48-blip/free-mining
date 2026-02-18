@@ -69,6 +69,45 @@ function DB.SetLevel(citizenId, level, experience)
 end
 
 -----------------------------------------------------------
+-- ADMIN (Phase 8)
+-----------------------------------------------------------
+
+--- Resets a player's mining stats to defaults.
+---@param citizenId string
+function DB.ResetStats(citizenId)
+    MySQL.update.await([[
+        UPDATE mining_stats
+        SET level = 1, experience = 0, total_mined = 0, total_earned = 0
+        WHERE player_id = ?
+    ]], { citizenId })
+end
+
+--- Gets a server-wide economy summary.
+---@return table
+function DB.GetEconomySummary()
+    local result = MySQL.single.await([[
+        SELECT
+            COUNT(*) AS totalPlayers,
+            COALESCE(SUM(total_mined), 0) AS totalMined,
+            COALESCE(SUM(total_earned), 0) AS totalEarned,
+            COALESCE(AVG(level), 1) AS avgLevel
+        FROM mining_stats
+    ]])
+
+    local discoveries = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_discoveries
+    ]]) or 0
+
+    return {
+        totalPlayers = result and result.totalPlayers or 0,
+        totalMined = result and result.totalMined or 0,
+        totalEarned = result and result.totalEarned or 0,
+        avgLevel = result and result.avgLevel or 1,
+        totalDiscoveries = discoveries,
+    }
+end
+
+-----------------------------------------------------------
 -- CONTRACTS (Phase 7)
 -----------------------------------------------------------
 
@@ -204,6 +243,171 @@ function DB.GetDiscoveryCount(citizenId)
     return MySQL.scalar.await([[
         SELECT COUNT(*) FROM mining_discoveries WHERE player_id = ?
     ]], { citizenId }) or 0
+end
+
+-----------------------------------------------------------
+-- SPECIALIZATIONS & SKILLS (Phase 9)
+-----------------------------------------------------------
+
+--- Gets a player's specialization.
+---@param citizenId string
+---@return string|nil
+function DB.GetSpecialization(citizenId)
+    return MySQL.scalar.await([[
+        SELECT specialization FROM mining_stats WHERE player_id = ?
+    ]], { citizenId })
+end
+
+--- Sets a player's specialization.
+---@param citizenId string
+---@param spec string
+function DB.SetSpecialization(citizenId, spec)
+    MySQL.update.await([[
+        UPDATE mining_stats SET specialization = ? WHERE player_id = ?
+    ]], { spec, citizenId })
+end
+
+--- Gets all unlocked skill keys for a player.
+---@param citizenId string
+---@return string[]
+function DB.GetSkills(citizenId)
+    local rows = MySQL.query.await([[
+        SELECT skill_key FROM mining_skills WHERE player_id = ?
+    ]], { citizenId }) or {}
+
+    local result = {}
+    for _, row in ipairs(rows) do
+        result[#result + 1] = row.skill_key
+    end
+    return result
+end
+
+--- Checks if a player has a specific skill.
+---@param citizenId string
+---@param skillKey string
+---@return boolean
+function DB.HasSkill(citizenId, skillKey)
+    local count = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_skills WHERE player_id = ? AND skill_key = ?
+    ]], { citizenId, skillKey })
+    return (count or 0) > 0
+end
+
+--- Unlocks a skill for a player.
+---@param citizenId string
+---@param skillKey string
+function DB.UnlockSkill(citizenId, skillKey)
+    MySQL.insert.await([[
+        INSERT IGNORE INTO mining_skills (player_id, skill_key) VALUES (?, ?)
+    ]], { citizenId, skillKey })
+end
+
+--- Adds to the skill_points_spent counter.
+---@param citizenId string
+---@param cost number
+function DB.SpendSkillPoints(citizenId, cost)
+    MySQL.update.await([[
+        UPDATE mining_stats SET skill_points_spent = skill_points_spent + ? WHERE player_id = ?
+    ]], { cost, citizenId })
+end
+
+-----------------------------------------------------------
+-- PRESTIGE (Phase 9)
+-----------------------------------------------------------
+
+--- Performs a prestige reset: increments prestige, resets level/XP/skills.
+---@param citizenId string
+---@param newPrestige number
+function DB.DoPrestige(citizenId, newPrestige)
+    MySQL.update.await([[
+        UPDATE mining_stats
+        SET prestige = ?, level = 1, experience = 0, skill_points_spent = 0
+        WHERE player_id = ?
+    ]], { newPrestige, citizenId })
+
+    -- Clear all unlocked skills
+    MySQL.update.await([[
+        DELETE FROM mining_skills WHERE player_id = ?
+    ]], { citizenId })
+end
+
+-----------------------------------------------------------
+-- ACHIEVEMENTS (Phase 9)
+-----------------------------------------------------------
+
+--- Gets all unlocked achievement keys for a player.
+---@param citizenId string
+---@return string[]
+function DB.GetAchievements(citizenId)
+    local rows = MySQL.query.await([[
+        SELECT achievement_key FROM mining_achievements WHERE player_id = ?
+    ]], { citizenId }) or {}
+
+    local result = {}
+    for _, row in ipairs(rows) do
+        result[#result + 1] = row.achievement_key
+    end
+    return result
+end
+
+--- Checks if a player has a specific achievement.
+---@param citizenId string
+---@param achievementKey string
+---@return boolean
+function DB.HasAchievement(citizenId, achievementKey)
+    local count = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_achievements WHERE player_id = ? AND achievement_key = ?
+    ]], { citizenId, achievementKey })
+    return (count or 0) > 0
+end
+
+--- Unlocks an achievement for a player.
+---@param citizenId string
+---@param achievementKey string
+function DB.UnlockAchievement(citizenId, achievementKey)
+    MySQL.insert.await([[
+        INSERT IGNORE INTO mining_achievements (player_id, achievement_key) VALUES (?, ?)
+    ]], { citizenId, achievementKey })
+end
+
+-----------------------------------------------------------
+-- EVENT COUNTERS (Phase 9)
+-----------------------------------------------------------
+
+--- Increments an event counter for a player.
+---@param citizenId string
+---@param counterKey string
+---@param amount number
+function DB.IncrementCounter(citizenId, counterKey, amount)
+    MySQL.insert.await([[
+        INSERT INTO mining_counters (player_id, counter_key, value) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE value = value + ?
+    ]], { citizenId, counterKey, amount, amount })
+end
+
+--- Gets a single counter value for a player.
+---@param citizenId string
+---@param counterKey string
+---@return number
+function DB.GetCounter(citizenId, counterKey)
+    return MySQL.scalar.await([[
+        SELECT value FROM mining_counters WHERE player_id = ? AND counter_key = ?
+    ]], { citizenId, counterKey }) or 0
+end
+
+--- Gets all counters for a player as a key-value table.
+---@param citizenId string
+---@return table<string, number>
+function DB.GetCounters(citizenId)
+    local rows = MySQL.query.await([[
+        SELECT counter_key, value FROM mining_counters WHERE player_id = ?
+    ]], { citizenId }) or {}
+
+    local result = {}
+    for _, row in ipairs(rows) do
+        result[row.counter_key] = row.value
+    end
+    return result
 end
 
 return DB

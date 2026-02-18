@@ -424,3 +424,46 @@ body {
 #mining-hud.level-up {
     animation: levelUpPulse 1.5s ease 3;
 }
+
+/* -------------------------------------------------------
+   PRESTIGE & SPECIALIZATION (Phase 9)
+   ------------------------------------------------------- */
+
+/* Prestige badge in HUD zone row */
+#hud-prestige-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #e8c84a;
+    background: rgba(201, 168, 76, 0.15);
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    margin-left: auto;
+}
+
+/* Stats panel specialization/prestige row */
+#stats-spec-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+#stats-spec-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #c9a84c;
+    background: rgba(201, 168, 76, 0.12);
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+#stats-prestige-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e8c84a;
+    letter-spacing: 0.5px;
+}

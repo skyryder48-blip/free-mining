@@ -21,16 +21,21 @@ client_scripts {
     'client/hazards.lua',
     'client/explosives.lua',
     'client/contracts.lua',
+    'client/specialization.lua',
 }
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/veins.lua',
+    'server/anticheat.lua',
     'server/main.lua',
     'server/processing.lua',
     'server/hazards.lua',
     'server/explosives.lua',
     'server/contracts.lua',
+    'server/admin.lua',
+    'server/skills.lua',
+    'server/achievements.lua',
 }
 
 ui_page 'html/minigame.html'

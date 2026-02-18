@@ -180,16 +180,6 @@ function AdvanceContracts(src, citizenId, eventType, amount, extraData)
             end
         end
 
-        -- Generic ore mining also counts for 'mine_ore' contracts
-        if contract.contract_type == 'mine_ore' and (eventType == 'mine_ore' or eventType == 'mine_specific' or eventType == 'mine_zone') then
-            matches = true
-        end
-
-        -- Gems mined count for mine_gems
-        if contract.contract_type == 'mine_gems' and eventType == 'mine_gems' then
-            matches = true
-        end
-
         if matches then
             local newProgress = DB.AddContractProgress(contract.id, amount)
 
@@ -217,10 +207,15 @@ function AdvanceContracts(src, citizenId, eventType, amount, extraData)
                     cashReward = cashReward,
                 })
 
-                -- Check if all-complete bonus
+                -- Track contracts_completed for achievements (Phase 9)
+                if TrackAchievementEvent then
+                    TrackAchievementEvent(src, citizenId, 'contracts_completed', 1)
+                end
+
+                -- Check if all-complete bonus (exactly maxActive completed today, none left active)
                 local todayCompleted = DB.GetTodayCompletedCount(citizenId)
                 local activeRemaining = DB.CountActiveContracts(citizenId)
-                if todayCompleted >= Config.Contracts.maxActive and activeRemaining == 0 then
+                if todayCompleted == Config.Contracts.maxActive and activeRemaining == 0 then
                     local bonus = Config.Contracts.completionBonus
                     DB.AddMiningProgress(citizenId, bonus.xp, 0)
                     checkLevelUp(src, citizenId)
@@ -256,11 +251,25 @@ end
 ---@param mode string mining mode key
 ---@param minigameResult string 'green'|'yellow'|'red'
 ---@param veinQuality number 0-100
+---@param citizenId string|nil player citizenId for skill bonuses
 ---@return string|nil rareItemKey
-function RollRareFind(mode, minigameResult, veinQuality)
+function RollRareFind(mode, minigameResult, veinQuality, citizenId)
     if not Config.RareFinds.enabled then return nil end
 
     local chance = Config.RareFinds.baseChance
+
+    -- Apply global rare chance multiplier (Phase 8)
+    if GetMultiplier then
+        chance = chance * GetMultiplier('rareChance')
+    end
+
+    -- Apply skill-based rare find bonus (Phase 9: Ore Whisperer / Earth's Bounty)
+    if citizenId and GetPlayerSkillBonus then
+        local rareBonus = GetPlayerSkillBonus(citizenId, 'rareChanceBonus')
+        if rareBonus > 0 then
+            chance = chance * (1 + rareBonus)
+        end
+    end
 
     -- Quality bonus: linear scale from 0 to qualityBonus at quality 100
     local qNorm = (veinQuality or 50) / 100

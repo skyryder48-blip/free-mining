@@ -84,6 +84,7 @@ local function refreshHudDisplay()
         xpPercent = xpPercent,
         totalMined = cachedStats.total_mined or 0,
         totalEarned = cachedStats.total_earned or 0,
+        prestige = cachedStats.prestige or 0,
     })
 end
 
@@ -115,6 +116,7 @@ local function showHud()
         xpPercent = xpPercent,
         totalMined = cachedStats and cachedStats.total_mined or 0,
         totalEarned = cachedStats and cachedStats.total_earned or 0,
+        prestige = cachedStats and cachedStats.prestige or 0,
     })
 end
 
@@ -154,6 +156,13 @@ function OpenStatsPanel()
 
     SetNuiFocus(true, true)
 
+    -- Resolve specialization label
+    local specLabel = nil
+    if cachedStats.specialization and Config.Specializations then
+        local specDef = Config.Specializations.specs[cachedStats.specialization]
+        specLabel = specDef and specDef.label or cachedStats.specialization
+    end
+
     SendNUIMessage({
         action = 'showStats',
         level = level,
@@ -165,6 +174,10 @@ function OpenStatsPanel()
         totalEarned = cachedStats.total_earned or 0,
         rank = cachedStats.rank or '--',
         totalXp = totalXp,
+        prestige = cachedStats.prestige or 0,
+        specialization = specLabel,
+        achievementCount = cachedStats.achievementCount or 0,
+        achievementTotal = cachedStats.achievementTotal or 0,
     })
 end
 

@@ -300,6 +300,12 @@
     const statsTotalEarned = document.getElementById('stats-total-earned');
     const statsRank = document.getElementById('stats-rank');
     const statsTotalXp = document.getElementById('stats-total-xp');
+    const statsAchievements = document.getElementById('stats-achievements');
+    const statsPrestigeNum = document.getElementById('stats-prestige-num');
+    const statsSpecRow = document.getElementById('stats-spec-row');
+    const statsSpecLabel = document.getElementById('stats-spec-label');
+    const statsPrestigeLabel = document.getElementById('stats-prestige-label');
+    const hudPrestigeBadge = document.getElementById('hud-prestige-badge');
 
     let xpFloatTimer = null;
 
@@ -350,6 +356,13 @@
         if (data.totalEarned != null) {
             hudTotalEarned.textContent = formatNumber(data.totalEarned);
         }
+
+        if (data.prestige != null && data.prestige > 0) {
+            hudPrestigeBadge.textContent = 'P' + data.prestige;
+            hudPrestigeBadge.classList.remove('hidden');
+        } else if (data.prestige != null) {
+            hudPrestigeBadge.classList.add('hidden');
+        }
     }
 
     // -------------------------------------------------------
@@ -389,6 +402,27 @@
 
         if (data.totalXp != null) {
             statsTotalXp.textContent = formatNumber(data.totalXp);
+        }
+
+        // Phase 9: Specialization, Prestige, Achievements
+        if (data.specialization) {
+            statsSpecLabel.textContent = data.specialization;
+            statsSpecRow.classList.remove('hidden');
+        } else {
+            statsSpecRow.classList.add('hidden');
+        }
+
+        if (data.prestige != null && data.prestige > 0) {
+            statsPrestigeLabel.textContent = 'Prestige ' + data.prestige;
+            statsPrestigeLabel.classList.remove('hidden');
+            statsPrestigeNum.textContent = data.prestige;
+        } else {
+            statsPrestigeLabel.classList.add('hidden');
+            statsPrestigeNum.textContent = '0';
+        }
+
+        if (data.achievementCount != null && data.achievementTotal != null) {
+            statsAchievements.textContent = data.achievementCount + '/' + data.achievementTotal;
         }
     }
 
