@@ -54,3 +54,34 @@ CREATE TABLE IF NOT EXISTS `mining_discoveries` (
     INDEX `idx_discoveries_player` (`player_id`),
     INDEX `idx_discoveries_recent` (`discovered_at`)
 );
+
+-- Phase 9: Progression & Specialization
+
+ALTER TABLE `mining_stats` ADD COLUMN `specialization` VARCHAR(32) NULL DEFAULT NULL;
+ALTER TABLE `mining_stats` ADD COLUMN `prestige` INT NOT NULL DEFAULT 0;
+ALTER TABLE `mining_stats` ADD COLUMN `skill_points_spent` INT NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS `mining_skills` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `player_id` VARCHAR(50) NOT NULL,
+    `skill_key` VARCHAR(64) NOT NULL,
+    `unlocked_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_player_skill` (`player_id`, `skill_key`),
+    INDEX `idx_skills_player` (`player_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `mining_achievements` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `player_id` VARCHAR(50) NOT NULL,
+    `achievement_key` VARCHAR(64) NOT NULL,
+    `unlocked_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_player_achievement` (`player_id`, `achievement_key`),
+    INDEX `idx_achievements_player` (`player_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `mining_counters` (
+    `player_id` VARCHAR(50) NOT NULL,
+    `counter_key` VARCHAR(64) NOT NULL,
+    `value` INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (`player_id`, `counter_key`)
+);

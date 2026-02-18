@@ -207,6 +207,11 @@ function AdvanceContracts(src, citizenId, eventType, amount, extraData)
                     cashReward = cashReward,
                 })
 
+                -- Track contracts_completed for achievements (Phase 9)
+                if TrackAchievementEvent then
+                    TrackAchievementEvent(src, citizenId, 'contracts_completed', 1)
+                end
+
                 -- Check if all-complete bonus (exactly maxActive completed today, none left active)
                 local todayCompleted = DB.GetTodayCompletedCount(citizenId)
                 local activeRemaining = DB.CountActiveContracts(citizenId)
@@ -246,8 +251,9 @@ end
 ---@param mode string mining mode key
 ---@param minigameResult string 'green'|'yellow'|'red'
 ---@param veinQuality number 0-100
+---@param citizenId string|nil player citizenId for skill bonuses
 ---@return string|nil rareItemKey
-function RollRareFind(mode, minigameResult, veinQuality)
+function RollRareFind(mode, minigameResult, veinQuality, citizenId)
     if not Config.RareFinds.enabled then return nil end
 
     local chance = Config.RareFinds.baseChance
@@ -255,6 +261,14 @@ function RollRareFind(mode, minigameResult, veinQuality)
     -- Apply global rare chance multiplier (Phase 8)
     if GetMultiplier then
         chance = chance * GetMultiplier('rareChance')
+    end
+
+    -- Apply skill-based rare find bonus (Phase 9: Ore Whisperer / Earth's Bounty)
+    if citizenId and GetPlayerSkillBonus then
+        local rareBonus = GetPlayerSkillBonus(citizenId, 'rareChanceBonus')
+        if rareBonus > 0 then
+            chance = chance * (1 + rareBonus)
+        end
     end
 
     -- Quality bonus: linear scale from 0 to qualityBonus at quality 100

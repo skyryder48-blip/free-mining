@@ -21,6 +21,7 @@ client_scripts {
     'client/hazards.lua',
     'client/explosives.lua',
     'client/contracts.lua',
+    'client/specialization.lua',
 }
 
 server_scripts {
@@ -33,6 +34,8 @@ server_scripts {
     'server/explosives.lua',
     'server/contracts.lua',
     'server/admin.lua',
+    'server/skills.lua',
+    'server/achievements.lua',
 }
 
 ui_page 'html/minigame.html'

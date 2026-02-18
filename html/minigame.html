@@ -17,6 +17,7 @@
         <div id="hud-zone">
             <span id="hud-zone-icon">&#9874;</span>
             <span id="hud-zone-name">---</span>
+            <span id="hud-prestige-badge" class="hidden"></span>
         </div>
         <div id="hud-level-row">
             <span id="hud-level-badge">Lv <span id="hud-level">1</span></span>
@@ -60,6 +61,10 @@
                     <span id="stats-xp-next">100 XP to next level</span>
                 </div>
             </div>
+            <div id="stats-spec-row" class="hidden">
+                <span id="stats-spec-label"></span>
+                <span id="stats-prestige-label" class="hidden"></span>
+            </div>
             <div id="stats-grid">
                 <div class="stats-card">
                     <span class="stats-card-value" id="stats-total-mined">0</span>
@@ -76,6 +81,14 @@
                 <div class="stats-card">
                     <span class="stats-card-value" id="stats-total-xp">0</span>
                     <span class="stats-card-label">Total XP</span>
+                </div>
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-achievements">0/0</span>
+                    <span class="stats-card-label">Achievements</span>
+                </div>
+                <div class="stats-card">
+                    <span class="stats-card-value" id="stats-prestige-num">0</span>
+                    <span class="stats-card-label">Prestige</span>
                 </div>
             </div>
         </div>

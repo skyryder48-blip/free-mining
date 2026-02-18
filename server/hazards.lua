@@ -274,6 +274,11 @@ lib.callback.register('mining:server:mineBoulder', function(src, data)
     -- Award XP for hazard cleanup
     DB.AddMiningProgress(citizenId, 5, actualStone)
 
+    -- Track hazard cleared for achievements (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'hazard_cleared', 1)
+    end
+
     return {
         success = true,
         stoneAmount = actualStone,
@@ -359,7 +364,17 @@ lib.callback.register('mining:server:gasCheck', function(src, subZoneName)
     end
 
     local protected = CheckRespirator(src)
-    return { active = true, protected = protected }
+
+    -- Phase 9: Hazard Awareness skill reduces damage
+    local damageReduction = 0
+    if GetPlayerSkillBonus then
+        local citizenId = getCitizenId(src)
+        if citizenId then
+            damageReduction = GetPlayerSkillBonus(citizenId, 'hazardDamageReduction')
+        end
+    end
+
+    return { active = true, protected = protected, damageReduction = damageReduction }
 end)
 
 -----------------------------------------------------------
@@ -451,6 +466,11 @@ lib.callback.register('mining:server:mineDebris', function(src, data)
 
     -- Award XP for hazard cleanup
     DB.AddMiningProgress(citizenId, 5, actualStone)
+
+    -- Track hazard cleared for achievements (Phase 9)
+    if TrackAchievementEvent then
+        TrackAchievementEvent(src, citizenId, 'hazard_cleared', 1)
+    end
 
     return {
         success = true,
