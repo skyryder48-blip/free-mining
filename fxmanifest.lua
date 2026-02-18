@@ -13,6 +13,7 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/veins.lua',
     'client/zones.lua',
     'client/mining.lua',
     'client/processing.lua',
@@ -20,6 +21,7 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/veins.lua',
     'server/main.lua',
     'server/processing.lua',
 }

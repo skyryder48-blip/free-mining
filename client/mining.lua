@@ -101,10 +101,10 @@ end
 -- MINING FLOW
 -----------------------------------------------------------
 
---- Main mining event triggered by ore node interaction.
+--- Main mining event triggered by vein interaction.
 ---@param subZoneName string
----@param nodeIndex number
-RegisterNetEvent('mining:client:startMining', function(subZoneName, nodeIndex)
+---@param veinId number
+RegisterNetEvent('mining:client:startMining', function(subZoneName, veinId)
     if isMining then return end
     if minigameActive then return end
 
@@ -143,47 +143,30 @@ RegisterNetEvent('mining:client:startMining', function(subZoneName, nodeIndex)
         return
     end
 
-    -- Get a representative ore type for timing (use first ore in distribution)
-    -- Server will roll the actual ore type
-    local subZone = nil
-    for _, zoneData in pairs(Config.Zones) do
-        for _, sz in ipairs(zoneData.subZones) do
-            if sz.name == subZoneName then
-                subZone = sz
-                break
-            end
-        end
-        if subZone then break end
+    -- Get the vein's ore type for timing and difficulty
+    local veinData = lib.callback.await('mining:server:getVeinInfo', false, veinId)
+    if not veinData then
+        lib.notify({ description = 'This vein is no longer available.', type = 'error' })
+        isMining = false
+        LocalPlayer.state:set('isMining', false, false)
+        return
     end
 
-    -- Calculate average mine time for the zone's ore distribution
-    local avgMineTime = 6000 -- fallback
-    if subZone then
-        local totalTime = 0
-        local totalWeight = 0
-        for oreType, weight in pairs(subZone.oreDistribution) do
-            local ore = Config.Ores[oreType]
-            if ore then
-                totalTime = totalTime + (ore.mineTime * weight)
-                totalWeight = totalWeight + weight
-            end
-        end
-        if totalWeight > 0 then
-            avgMineTime = totalTime / totalWeight
-        end
-    end
+    local oreDef = Config.Ores[veinData.oreType]
+    local mineTime = (oreDef and oreDef.mineTime or 6000)
 
     -- Apply tool speed and mode modifier
-    local mineTime = math.floor(avgMineTime / toolDef.speed / modeDef.speedMod)
+    mineTime = math.floor(mineTime / toolDef.speed / modeDef.speedMod)
 
     -- Load animation
     local anim = toolDef.anim
     lib.requestAnimDict(anim.dict)
 
     -- Progress circle with animation
+    local oreLabel = oreDef and oreDef.label or veinData.oreType
     local completed = lib.progressCircle({
         duration = mineTime,
-        label = 'Mining...',
+        label = ('Mining %s...'):format(oreLabel),
         useWhileDead = false,
         canCancel = true,
         disable = {
@@ -205,30 +188,15 @@ RegisterNetEvent('mining:client:startMining', function(subZoneName, nodeIndex)
         return
     end
 
-    -- Determine difficulty for minigame based on zone ores
-    local difficulty = 'medium' -- default
-    if subZone then
-        -- Use the hardest ore's difficulty as the zone difficulty
-        local difficultyOrder = { easy = 1, medium = 2, hard = 3, expert = 4 }
-        local maxDiff = 0
-        for oreType in pairs(subZone.oreDistribution) do
-            local ore = Config.Ores[oreType]
-            if ore then
-                local d = difficultyOrder[ore.difficulty] or 2
-                if d > maxDiff then
-                    maxDiff = d
-                    difficulty = ore.difficulty
-                end
-            end
-        end
-    end
+    -- Use the vein's ore difficulty for minigame
+    local difficulty = oreDef and oreDef.difficulty or 'medium'
 
     -- Play minigame
     local minigameResult = PlayMinigame(difficulty)
 
     -- Send to server for validation and reward
     local result = lib.callback.await('mining:server:extract', false, {
-        nodeIndex = nodeIndex,
+        veinId = veinId,
         subZoneName = subZoneName,
         mode = mode,
         minigameResult = minigameResult,
@@ -236,8 +204,12 @@ RegisterNetEvent('mining:client:startMining', function(subZoneName, nodeIndex)
 
     if result and result.success then
         local resultLabel = minigameResult == 'green' and 'Perfect!' or (minigameResult == 'yellow' and 'Good' or 'Poor')
+        local qualityStr = ''
+        if result.veinQuality then
+            qualityStr = (' (Vein: %d%%)'):format(result.veinQuality)
+        end
         lib.notify({
-            description = ('%s - Mined %dx %s'):format(resultLabel, result.amount, result.oreLabel),
+            description = ('%s - Mined %dx %s%s'):format(resultLabel, result.amount, result.oreLabel, qualityStr),
             type = minigameResult == 'red' and 'error' or 'success',
             duration = 4000,
         })

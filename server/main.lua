@@ -95,41 +95,22 @@ local function degradeTool(src, slot, toolName, wearAmount)
     end
 end
 
---- Rolls an ore type from a sub-zone's ore distribution table.
----@param distribution table<string, number>
----@return string
-local function rollOreType(distribution)
-    local total = 0
-    for _, weight in pairs(distribution) do
-        total = total + weight
-    end
-
-    local roll = math.random(1, total)
-    local cumulative = 0
-    for oreType, weight in pairs(distribution) do
-        cumulative = cumulative + weight
-        if roll <= cumulative then
-            return oreType
-        end
-    end
-
-    -- Fallback (should never reach)
-    for oreType in pairs(distribution) do
-        return oreType
-    end
-end
-
---- Calculates ore yield based on mode and minigame result.
+--- Calculates ore yield based on mode, minigame result, and vein quality.
 ---@param mode string
 ---@param minigameResult string 'green'|'yellow'|'red'
+---@param veinQuality number 0-100
 ---@return number
-local function calculateYield(mode, minigameResult)
+local function calculateYield(mode, minigameResult, veinQuality)
     local modeDef = Config.MiningModes[mode]
     local minigameMod = Config.Minigame.yieldMultiplier[minigameResult] or 1.0
     local qualityMod = modeDef and modeDef.qualityMod or 1.0
 
+    -- Vein quality modifier: lerp between qualityYieldMin and qualityYieldMax
+    local qNorm = (veinQuality or 50) / 100
+    local veinMod = Config.Veins.qualityYieldMin + qNorm * (Config.Veins.qualityYieldMax - Config.Veins.qualityYieldMin)
+
     local base = math.random(Config.BaseYield.min, Config.BaseYield.max)
-    return math.max(1, math.floor(base * qualityMod * minigameMod + 0.5))
+    return math.max(1, math.floor(base * qualityMod * minigameMod * veinMod + 0.5))
 end
 
 -----------------------------------------------------------
@@ -203,7 +184,7 @@ end, {})
 -----------------------------------------------------------
 
 lib.callback.register('mining:server:extract', function(src, data)
-    -- data: { nodeIndex, subZoneName, mode, minigameResult }
+    -- data: { veinId, subZoneName, mode, minigameResult }
     if not checkCooldown(src, 'mining') then
         return { success = false, reason = 'Too fast' }
     end
@@ -213,7 +194,7 @@ lib.callback.register('mining:server:extract', function(src, data)
 
     local mode = data.mode
     local minigameResult = data.minigameResult
-    local subZoneName = data.subZoneName
+    local veinId = data.veinId
 
     -- Validate mode
     if not Config.MiningModes[mode] then
@@ -225,24 +206,14 @@ lib.callback.register('mining:server:extract', function(src, data)
         return { success = false, reason = 'Invalid minigame result' }
     end
 
-    -- Find the sub-zone config to get ore distribution
-    local subZone = nil
-    for _, zoneData in pairs(Config.Zones) do
-        for _, sz in ipairs(zoneData.subZones) do
-            if sz.name == subZoneName then
-                subZone = sz
-                break
-            end
-        end
-        if subZone then break end
+    -- Validate vein exists and is not depleted
+    local vein = GetVein(veinId)
+    if not vein or vein.depletedAt or vein.remaining <= 0 then
+        return { success = false, reason = 'This vein is depleted' }
     end
 
-    if not subZone then
-        return { success = false, reason = 'Invalid zone' }
-    end
-
-    -- Roll ore type from distribution
-    local oreType = rollOreType(subZone.oreDistribution)
+    -- Get ore definition from vein's ore type
+    local oreType = vein.oreType
     local oreDef = Config.Ores[oreType]
     if not oreDef then
         return { success = false, reason = 'Ore config error' }
@@ -254,8 +225,8 @@ lib.callback.register('mining:server:extract', function(src, data)
         return { success = false, reason = 'No suitable tool', requiredTool = oreDef.tool }
     end
 
-    -- Calculate yield
-    local amount = calculateYield(mode, minigameResult)
+    -- Calculate yield (now includes vein quality)
+    local amount = calculateYield(mode, minigameResult, vein.quality)
 
     -- Check inventory space
     if not exports.ox_inventory:CanCarryItem(src, oreType, amount) then
@@ -263,11 +234,13 @@ lib.callback.register('mining:server:extract', function(src, data)
     end
 
     -- Degrade tool (base wear of 3 uses, modified by mode)
-    -- aggressive: 3*1.5=5, balanced: 3*1.0=3, precision: 3*0.75=2
     local modeDef = Config.MiningModes[mode]
     local baseWear = 3
     local wearAmount = math.max(1, math.floor(baseWear * modeDef.wearMod + 0.5))
     degradeTool(src, toolSlot, toolName, wearAmount)
+
+    -- Deplete vein by 1 extraction
+    DepleteVein(veinId)
 
     -- Award ore
     exports.ox_inventory:AddItem(src, oreType, amount)
@@ -281,6 +254,8 @@ lib.callback.register('mining:server:extract', function(src, data)
         oreLabel = oreDef.label,
         amount = amount,
         minigameResult = minigameResult,
+        veinQuality = vein.quality,
+        veinRemaining = math.max(0, vein.remaining - 1),
     }
 end)
 
@@ -423,14 +398,13 @@ end)
 -- DATA CALLBACKS
 -----------------------------------------------------------
 
---- Returns ore distribution and node data for a sub-zone.
+--- Returns ore distribution data for a sub-zone.
 lib.callback.register('mining:server:getSubZoneData', function(src, subZoneName)
     for _, zoneData in pairs(Config.Zones) do
         for _, sz in ipairs(zoneData.subZones) do
             if sz.name == subZoneName then
                 return {
                     oreDistribution = sz.oreDistribution,
-                    oreNodes = sz.oreNodes,
                 }
             end
         end

@@ -1,11 +1,10 @@
 -----------------------------------------------------------
 -- ZONE MANAGEMENT
 -- Registers ox_lib poly zones for each sub-zone.
--- Manages ore node ox_target points per sub-zone.
+-- Delegates vein targets/props to client/veins.lua.
 -----------------------------------------------------------
 
 local activeZone = nil      -- current sub-zone name the player is in
-local activeTargets = {}    -- ox_target IDs for current sub-zone ore nodes
 local activeBlips = {}      -- map blips
 
 -----------------------------------------------------------
@@ -19,61 +18,20 @@ function GetActiveZone()
 end
 
 -----------------------------------------------------------
--- ORE NODE TARGETS
------------------------------------------------------------
-
---- Removes all active ore node targets.
-local function removeOreNodes()
-    for _, id in ipairs(activeTargets) do
-        exports.ox_target:removeZone(id)
-    end
-    activeTargets = {}
-end
-
---- Spawns ox_target interaction points for all ore nodes in a sub-zone.
----@param subZone table
-local function createOreNodes(subZone)
-    removeOreNodes()
-
-    for i, nodeCoords in ipairs(subZone.oreNodes) do
-        local id = exports.ox_target:addSphereZone({
-            coords = nodeCoords,
-            radius = 1.2,
-            debug = false,
-            options = {
-                {
-                    name = 'mine_node_' .. subZone.name .. '_' .. i,
-                    label = 'Mine Ore',
-                    icon = 'fas fa-hammer',
-                    distance = 2.0,
-                    onSelect = function()
-                        TriggerEvent('mining:client:startMining', subZone.name, i)
-                    end,
-                    canInteract = function()
-                        return not LocalPlayer.state.isMining
-                    end,
-                },
-            },
-        })
-        activeTargets[#activeTargets + 1] = id
-    end
-end
-
------------------------------------------------------------
 -- SUB-ZONE REGISTRATION
 -----------------------------------------------------------
 
 local function initZones()
     for zoneName, zoneData in pairs(Config.Zones) do
         for _, subZone in ipairs(zoneData.subZones) do
-            -- Convert vec3 points to vec2 for poly zone (ox_lib zones.poly uses vec3 with thickness)
             lib.zones.poly({
                 points = subZone.points,
                 thickness = (subZone.maxZ or 10.0) - (subZone.minZ or -5.0),
                 debug = false,
                 onEnter = function()
                     activeZone = subZone.name
-                    createOreNodes(subZone)
+                    -- Load dynamic veins for this sub-zone
+                    LoadVeinsForSubZone(subZone.name)
                     lib.notify({
                         description = ('Entered %s - %s'):format(zoneData.label, subZone.label),
                         type = 'inform',
@@ -83,7 +41,8 @@ local function initZones()
                 onExit = function()
                     if activeZone == subZone.name then
                         activeZone = nil
-                        removeOreNodes()
+                        -- Unload veins when leaving sub-zone
+                        UnloadActiveVeins()
                     end
                 end,
             })
@@ -227,7 +186,7 @@ local function cleanup()
     end
     activeBlips = {}
 
-    removeOreNodes()
+    CleanupVeins()
     activeZone = nil
 end
 

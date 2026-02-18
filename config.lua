@@ -292,7 +292,7 @@ Config.Shop = {
 -- MINING ZONES & SUB-ZONES
 -----------------------------------------------------------
 -- Each sub-zone is a small polygon around a walkable area inside the MLO.
--- Ore nodes are static positions within each sub-zone (replaced by dynamic veins in Phase 2).
+-- Veins are dynamically generated within each sub-zone's spawnArea bounds.
 -- TODO: Update all coordinates once MLOs are loaded and positioned.
 
 Config.Zones = {
@@ -315,11 +315,12 @@ Config.Zones = {
                     raw_quartz = 30,
                     ore_silver = 20,
                 },
-                oreNodes = {
-                    vec3(2.0, 3.0, 0.0),
-                    vec3(5.0, 7.0, 0.0),
-                    vec3(8.0, 2.0, 0.0),
+                -- Rectangular bounds for vein spawning inside this sub-zone
+                spawnArea = {
+                    min = vec3(1.0, 1.0, 0.0),
+                    max = vec3(9.0, 9.0, 0.0),
                 },
+                veinDensity = 3, -- target number of active veins
             },
             {
                 name = 'cave_main_gallery',
@@ -339,12 +340,11 @@ Config.Zones = {
                     raw_quartz = 20,
                     raw_emerald = 10,
                 },
-                oreNodes = {
-                    vec3(17.0, 3.0, 0.0),
-                    vec3(22.0, 8.0, 0.0),
-                    vec3(27.0, 12.0, 0.0),
-                    vec3(20.0, 5.0, 0.0),
+                spawnArea = {
+                    min = vec3(16.0, 1.0, 0.0),
+                    max = vec3(29.0, 14.0, 0.0),
                 },
+                veinDensity = 4,
             },
             {
                 name = 'cave_deep_passage',
@@ -363,11 +363,11 @@ Config.Zones = {
                     raw_emerald = 30,
                     raw_quartz = 25,
                 },
-                oreNodes = {
-                    vec3(38.0, 3.0, 0.0),
-                    vec3(43.0, 7.0, 0.0),
-                    vec3(47.0, 5.0, 0.0),
+                spawnArea = {
+                    min = vec3(36.0, 1.0, 0.0),
+                    max = vec3(49.0, 9.0, 0.0),
                 },
+                veinDensity = 3,
             },
         },
     },
@@ -392,12 +392,11 @@ Config.Zones = {
                     ore_platinum = 10,
                     ore_titanium = 10,
                 },
-                oreNodes = {
-                    vec3(103.0, 3.0, 0.0),
-                    vec3(108.0, 5.0, 0.0),
-                    vec3(115.0, 4.0, 0.0),
-                    vec3(118.0, 6.0, 0.0),
+                spawnArea = {
+                    min = vec3(101.0, 1.0, 0.0),
+                    max = vec3(119.0, 7.0, 0.0),
                 },
+                veinDensity = 4,
             },
             {
                 name = 'shaft_level2',
@@ -417,12 +416,11 @@ Config.Zones = {
                     ore_iron = 20,
                     raw_diamond = 15,
                 },
-                oreNodes = {
-                    vec3(105.0, 18.0, 0.0),
-                    vec3(110.0, 22.0, 0.0),
-                    vec3(118.0, 17.0, 0.0),
-                    vec3(122.0, 23.0, 0.0),
+                spawnArea = {
+                    min = vec3(101.0, 16.0, 0.0),
+                    max = vec3(124.0, 24.0, 0.0),
                 },
+                veinDensity = 4,
             },
         },
     },
@@ -490,4 +488,63 @@ Config.Cooldowns = {
 Config.Animations = {
     smelting = { dict = 'anim@amb@business@weed@weed_inspecting_high_dry@', clip = 'weed_inspecting_high_base_inspector' },
     cutting  = { dict = 'mini@repair', clip = 'fixing_a_player' },
+}
+
+-----------------------------------------------------------
+-- DYNAMIC VEINS (Phase 2)
+-----------------------------------------------------------
+
+Config.Veins = {
+    -- Per-vein quantity range (number of extractions before depleted)
+    quantityMin = 5,
+    quantityMax = 15,
+
+    -- Quality range (0-100, affects yield multiplier)
+    qualityMin = 20,
+    qualityMax = 95,
+
+    -- Quality yield multiplier: final yield *= lerp(qualityYieldMin, qualityYieldMax, quality/100)
+    qualityYieldMin = 0.5,  -- quality 0
+    qualityYieldMax = 1.5,  -- quality 100
+
+    -- Minimum distance between veins within the same sub-zone (units)
+    minSpacing = 3.0,
+
+    -- Interaction radius for ox_target sphere on each vein
+    interactionRadius = 1.2,
+
+    -- Discovery: veins are only visible to client within this distance (units)
+    discoveryRange = 50.0,
+}
+
+-----------------------------------------------------------
+-- VEIN REGENERATION
+-----------------------------------------------------------
+
+Config.VeinRegeneration = {
+    -- How often the server checks for depleted veins to regenerate (ms)
+    checkInterval = 60000, -- 1 minute
+
+    -- Time range (ms) after depletion before a vein regenerates as a new one
+    regenMinTime = 30 * 60 * 1000,   -- 30 minutes (shorter for testing; set to 24h for production)
+    regenMaxTime = 90 * 60 * 1000,   -- 90 minutes (shorter for testing; set to 72h for production)
+}
+
+-----------------------------------------------------------
+-- INDICATOR PROPS (placed near veins for visual cue)
+-----------------------------------------------------------
+-- Each ore type can have 1-3 small props spawned near the vein.
+-- model: prop model name, offset: spawn offset range from vein center
+
+Config.IndicatorProps = {
+    ore_copper   = { model = 'prop_rock_4_c',     count = 2, offsetRange = 0.8 },
+    ore_silver   = { model = 'prop_rock_4_b',     count = 2, offsetRange = 0.8 },
+    ore_gold     = { model = 'prop_rock_4_c',     count = 2, offsetRange = 0.8 },
+    ore_iron     = { model = 'prop_rock_4_b',     count = 2, offsetRange = 0.8 },
+    ore_platinum = { model = 'prop_rock_4_c',     count = 3, offsetRange = 1.0 },
+    ore_titanium = { model = 'prop_rock_4_c',     count = 3, offsetRange = 1.0 },
+    coal         = { model = 'prop_rock_4_b',     count = 1, offsetRange = 0.5 },
+    raw_quartz   = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
+    raw_emerald  = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
+    raw_diamond  = { model = 'prop_rock_4_cl2',   count = 3, offsetRange = 1.0 },
 }
