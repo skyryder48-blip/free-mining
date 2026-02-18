@@ -13,12 +13,14 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/hud.lua',
     'client/veins.lua',
     'client/zones.lua',
     'client/mining.lua',
     'client/processing.lua',
     'client/hazards.lua',
     'client/explosives.lua',
+    'client/contracts.lua',
 }
 
 server_scripts {
@@ -28,6 +30,7 @@ server_scripts {
     'server/processing.lua',
     'server/hazards.lua',
     'server/explosives.lua',
+    'server/contracts.lua',
 }
 
 ui_page 'html/minigame.html'

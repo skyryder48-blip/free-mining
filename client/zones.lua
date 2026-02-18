@@ -79,6 +79,9 @@ local function initZones()
                         type = notifyType,
                         duration = 5000,
                     })
+
+                    -- Show mining HUD (Phase 6)
+                    if OnMiningZoneEnter then OnMiningZoneEnter() end
                 end,
                 onExit = function()
                     if activeZone == subZone.name then
@@ -86,6 +89,8 @@ local function initZones()
                         activeZoneKey = nil
                         -- Unload veins when leaving sub-zone
                         UnloadActiveVeins()
+                        -- Hide mining HUD (Phase 6)
+                        if OnMiningZoneExit then OnMiningZoneExit() end
                     end
                 end,
             })
@@ -156,6 +161,15 @@ local function initInteractionPoints()
                     TriggerEvent('mining:client:openShop')
                 end,
             },
+            {
+                name = 'mining_stats',
+                label = 'Mining Profile',
+                icon = 'fas fa-chart-bar',
+                distance = 2.5,
+                onSelect = function()
+                    if OpenStatsPanel then OpenStatsPanel() end
+                end,
+            },
         })
     end
 
@@ -210,6 +224,24 @@ local function initInteractionPoints()
             },
         },
     })
+
+    -- Contract Board NPC (Phase 7)
+    if Config.Locations.contractBoard then
+        local boardPed = spawnNpc(Config.Locations.contractBoard)
+        if boardPed then
+            exports.ox_target:addLocalEntity(boardPed, {
+                {
+                    name = 'mining_contract_board',
+                    label = Config.Locations.contractBoard.label,
+                    icon = 'fas fa-scroll',
+                    distance = 2.5,
+                    onSelect = function()
+                        TriggerEvent('mining:client:openContractBoard')
+                    end,
+                },
+            })
+        end
+    end
 end
 
 -----------------------------------------------------------
@@ -232,6 +264,7 @@ local function cleanup()
     CleanupVeins()
     CleanupHazards()
     if CleanupExplosives then CleanupExplosives() end
+    if CleanupHud then CleanupHud() end
     activeZone = nil
     activeZoneKey = nil
 end

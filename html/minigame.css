@@ -19,6 +19,10 @@ body {
     display: none !important;
 }
 
+/* -------------------------------------------------------
+   MINIGAME
+   ------------------------------------------------------- */
+
 #minigame-container {
     display: flex;
     flex-direction: column;
@@ -43,4 +47,380 @@ body {
 #minigame-hint span {
     color: #ffd700;
     font-weight: 700;
+}
+
+/* -------------------------------------------------------
+   MINING HUD
+   ------------------------------------------------------- */
+
+#mining-hud {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 240px;
+    background: rgba(10, 10, 15, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #e0e0e0;
+    font-size: 13px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 100;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#mining-hud.hud-top-left {
+    bottom: auto;
+    right: auto;
+    top: 20px;
+    left: 20px;
+}
+
+#mining-hud.hud-top-right {
+    bottom: auto;
+    right: 20px;
+    top: 20px;
+    left: auto;
+}
+
+#mining-hud.hud-bottom-left {
+    bottom: 20px;
+    right: auto;
+    top: auto;
+    left: 20px;
+}
+
+#mining-hud.hud-bottom-right {
+    bottom: 20px;
+    right: 20px;
+    top: auto;
+    left: auto;
+}
+
+/* Zone row */
+#hud-zone {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #9e9e9e;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+#hud-zone-icon {
+    font-size: 14px;
+    color: #b0b0b0;
+}
+
+/* Level + XP bar */
+#hud-level-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+#hud-level-badge {
+    background: linear-gradient(135deg, #c9a84c, #a07c2a);
+    color: #1a1a1a;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    min-width: 42px;
+    text-align: center;
+}
+
+#hud-xp-bar-container {
+    flex: 1;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 7px;
+    overflow: hidden;
+    position: relative;
+}
+
+#hud-xp-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #c9a84c, #e8c84a);
+    border-radius: 7px;
+    transition: width 0.6s ease;
+}
+
+#hud-xp-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.3px;
+}
+
+/* Stats row */
+#hud-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.hud-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #b0b0b0;
+}
+
+.hud-stat-icon {
+    font-size: 13px;
+    color: #8e8e8e;
+}
+
+.hud-stat-value {
+    color: #d0d0d0;
+    font-weight: 600;
+}
+
+/* Compact mode: hide stats row */
+#mining-hud.compact #hud-stats {
+    display: none;
+}
+
+#mining-hud.compact {
+    width: 200px;
+    padding: 10px 12px;
+}
+
+/* HUD fade-in animation */
+@keyframes hudSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+#mining-hud.show {
+    animation: hudSlideIn 0.3s ease forwards;
+}
+
+/* -------------------------------------------------------
+   XP FLOAT TEXT
+   ------------------------------------------------------- */
+
+#xp-float {
+    position: fixed;
+    bottom: 130px;
+    right: 60px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #e8c84a;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+    z-index: 101;
+}
+
+#xp-float.hud-top-left {
+    bottom: auto;
+    right: auto;
+    top: 100px;
+    left: 60px;
+}
+
+#xp-float.hud-top-right {
+    bottom: auto;
+    right: 60px;
+    top: 100px;
+    left: auto;
+}
+
+#xp-float.hud-bottom-left {
+    bottom: 130px;
+    right: auto;
+    left: 60px;
+}
+
+@keyframes xpFloat {
+    0%   { opacity: 1; transform: translateY(0); }
+    70%  { opacity: 1; transform: translateY(-30px); }
+    100% { opacity: 0; transform: translateY(-50px); }
+}
+
+#xp-float.animate {
+    display: block !important;
+    animation: xpFloat 1.5s ease forwards;
+}
+
+/* -------------------------------------------------------
+   STATS PANEL
+   ------------------------------------------------------- */
+
+#stats-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+#stats-panel-inner {
+    width: 380px;
+    background: rgba(15, 15, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 24px;
+    color: #e0e0e0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#stats-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #f0f0f0;
+}
+
+#stats-close {
+    font-size: 24px;
+    color: #888;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+#stats-close:hover {
+    color: #fff;
+}
+
+/* Level section */
+#stats-level-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+#stats-level-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c9a84c, #a07c2a);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+#stats-level-num {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1;
+}
+
+#stats-level-label {
+    font-size: 8px;
+    font-weight: 600;
+    color: #3a3a3a;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+#stats-xp-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#stats-xp-bar-container {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+#stats-xp-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #c9a84c, #e8c84a);
+    border-radius: 5px;
+    transition: width 0.6s ease;
+}
+
+#stats-xp-text {
+    font-size: 12px;
+    color: #b0b0b0;
+}
+
+#stats-xp-next {
+    font-size: 11px;
+    color: #777;
+}
+
+/* Stats grid */
+#stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.stats-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.stats-card-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f0f0f0;
+}
+
+.stats-card-label {
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 0.3px;
+}
+
+/* Level up animation on HUD */
+@keyframes levelUpPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.6); }
+    50%  { box-shadow: 0 0 20px 8px rgba(201, 168, 76, 0.3); }
+    100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0); }
+}
+
+#mining-hud.level-up {
+    animation: levelUpPulse 1.5s ease 3;
 }

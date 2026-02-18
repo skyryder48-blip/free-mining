@@ -146,6 +146,14 @@ lib.callback.register('mining:server:smelt', function(src, data)
         checkLevelUp(src, citizenId)
     end
 
+    -- Advance contracts (Phase 7)
+    if outputAmount > 0 and AdvanceContracts then
+        AdvanceContracts(src, citizenId, 'smelt_ore', outputAmount, nil)
+        if minigameResult == 'green' then
+            AdvanceContracts(src, citizenId, 'perfect_hits', 1, nil)
+        end
+    end
+
     return {
         success = true,
         outputItem = outputItem,
@@ -153,6 +161,7 @@ lib.callback.register('mining:server:smelt', function(src, data)
         oreConsumed = oreConsumed,
         minigameResult = minigameResult,
         message = message,
+        xpGained = outputAmount > 0 and 15 or 0,
     }
 end)
 
@@ -236,11 +245,17 @@ lib.callback.register('mining:server:cutGem', function(src, data)
     DB.AddMiningProgress(citizenId, 20, 0) -- 20 XP for cutting
     checkLevelUp(src, citizenId)
 
+    -- Advance contracts (Phase 7)
+    if AdvanceContracts then
+        AdvanceContracts(src, citizenId, 'cut_gems', 1, nil)
+    end
+
     return {
         success = true,
         outputItem = outputItem,
         quality = quality,
         qualityLabel = qualityLabel,
         qualityMultiplier = qualityMul,
+        xpGained = 20,
     }
 end)

@@ -219,6 +219,10 @@ AddEventHandler('mining:client:startMining', function(subZoneName, veinId)
             type = minigameResult == 'red' and 'error' or 'success',
             duration = 4000,
         })
+
+        -- HUD: show XP gain and refresh
+        if result.xpGained and ShowXpGain then ShowXpGain(result.xpGained) end
+        if RefreshMiningHud then RefreshMiningHud() end
     elseif result then
         lib.notify({ description = result.reason or 'Mining failed', type = 'error' })
     end
@@ -294,10 +298,15 @@ AddEventHandler('mining:client:openBuyer', function()
                         amount = count,
                     })
                     if result and result.success then
+                        local sellMsg = ('Sold %dx %s for $%s'):format(result.amount, result.item, result.total)
+                        if result.rareSellBonus then
+                            sellMsg = sellMsg .. ' (RARE BONUS!)'
+                        end
                         lib.notify({
-                            description = ('Sold %dx %s for $%s'):format(result.amount, result.item, result.total),
+                            description = sellMsg,
                             type = 'success',
                         })
+                        if RefreshMiningHud then RefreshMiningHud() end
                     elseif result then
                         lib.notify({ description = result.reason or 'Sale failed', type = 'error' })
                     end

@@ -300,6 +300,12 @@ Config.SellPrices = {
 
     -- Materials
     stone = 8,
+
+    -- Rare finds (Phase 7) - base prices, can be multiplied by sell bonus
+    pure_gold_nugget   = 2500,
+    ancient_fossil     = 3500,
+    flawless_crystal   = 5000,
+    meteorite_fragment = 8000,
 }
 
 -----------------------------------------------------------
@@ -596,6 +602,13 @@ Config.Locations = {
         label = 'Mining Buyer',
         blip = { sprite = 617, color = 2, scale = 0.7 },
     },
+    contractBoard = {
+        coords = vec3(0.0, 0.0, 0.0),
+        heading = 0.0,
+        model = 's_m_y_construct_02',
+        label = 'Contract Board',
+        blip = { sprite = 267, color = 5, scale = 0.7 },
+    },
 }
 
 -----------------------------------------------------------
@@ -813,6 +826,144 @@ Config.GasLeak = {
 Config.Leveling = {
     maxLevel = 20,
     xpPerLevel = 100,  -- XP needed per level (level 2 = 100, level 3 = 200, etc.)
+}
+
+-----------------------------------------------------------
+-- HUD & PROGRESSION UI (Phase 6)
+-----------------------------------------------------------
+Config.HUD = {
+    -- Show the mining HUD while inside a mining zone
+    enabled = true,
+
+    -- Position: 'top-left', 'top-right', 'bottom-left', 'bottom-right'
+    position = 'bottom-right',
+
+    -- Refresh interval (ms) for stats sync from server
+    refreshInterval = 15000,
+
+    -- Show HUD on zone enter, hide on zone exit
+    autoToggle = true,
+
+    -- Compact mode: only shows level and XP bar (no stats)
+    compactMode = false,
+
+    -- XP notification on gain (shows +XP floating text)
+    showXpGain = true,
+
+    -- Level-up celebration effect
+    levelUpEffect = true,
+    levelUpSound = true,
+}
+
+-----------------------------------------------------------
+-- CONTRACTS (Phase 7)
+-----------------------------------------------------------
+-- Daily mining contracts available from the Contract Board NPC.
+-- Players can accept up to maxActive contracts at once.
+-- Contracts refresh daily (server midnight reset).
+
+Config.Contracts = {
+    maxActive = 3,                -- max simultaneous active contracts
+    refreshHour = 0,              -- hour (0-23) at which available contracts refresh
+    availableCount = 6,           -- how many contracts appear on the board each day
+
+    -- Contract difficulty tiers and their reward scaling
+    tiers = {
+        easy   = { xpReward = 50,  cashReward = 500,  color = '~g~' },
+        medium = { xpReward = 100, cashReward = 1200, color = '~y~' },
+        hard   = { xpReward = 200, cashReward = 2500, color = '~r~' },
+    },
+
+    -- Bonus for completing all 3 active contracts in one day
+    completionBonus = {
+        xp = 150,
+        cash = 1000,
+    },
+
+    -- Contract templates: each defines what the player must do.
+    -- 'type' determines tracking method; 'target' is the goal amount.
+    -- Templates are randomly selected and scaled per tier.
+    templates = {
+        -- Mining contracts
+        { type = 'mine_ore',     label = 'Mine %d ore',                   target = { easy = 15, medium = 30, hard = 60 } },
+        { type = 'mine_specific', label = 'Mine %d %s',                   target = { easy = 8,  medium = 18, hard = 35 }, ores = { 'ore_copper', 'ore_silver', 'ore_gold', 'ore_iron' } },
+        { type = 'mine_zone',    label = 'Mine %d ore in %s',             target = { easy = 10, medium = 25, hard = 45 }, zones = { 'cave', 'mine_shaft', 'quarry' } },
+        { type = 'mine_gems',    label = 'Mine %d raw gems',              target = { easy = 3,  medium = 8,  hard = 15 } },
+
+        -- Processing contracts
+        { type = 'smelt_ore',    label = 'Smelt %d ingots',               target = { easy = 8,  medium = 20, hard = 40 } },
+        { type = 'cut_gems',     label = 'Cut %d gems',                   target = { easy = 2,  medium = 5,  hard = 10 } },
+
+        -- Minigame skill contracts
+        { type = 'perfect_hits', label = 'Get %d perfect (green) hits',   target = { easy = 5,  medium = 12, hard = 25 } },
+
+        -- Economy contracts
+        { type = 'earn_cash',    label = 'Earn $%d from mining sales',    target = { easy = 1000, medium = 3000, hard = 8000 } },
+
+        -- Explosives contracts
+        { type = 'blast_veins',  label = 'Blast mine %d veins',           target = { easy = 2,  medium = 5,  hard = 10 } },
+    },
+}
+
+-----------------------------------------------------------
+-- RARE FINDS (Phase 7)
+-----------------------------------------------------------
+-- Ultra-rare bonus loot that can drop from any extraction.
+-- Creates exciting discovery moments with server-wide alerts.
+
+Config.RareFinds = {
+    enabled = true,
+
+    -- Global base chance per extraction (0.01 = 1%). Modified by vein quality.
+    baseChance = 0.008,  -- 0.8% base
+
+    -- Vein quality bonus: high quality veins are more likely to yield rare finds.
+    -- At quality 100, chance is baseChance * (1 + qualityBonus)
+    qualityBonus = 1.5,  -- at quality 100: 0.8% * 2.5 = 2% chance
+
+    -- Precision mode bonus multiplier (rewards careful mining)
+    precisionBonus = 1.5,
+
+    -- Green minigame result bonus multiplier
+    greenBonus = 2.0,
+
+    -- Server-wide discovery announcement
+    announceToServer = true,
+
+    -- XP bonus for finding a rare item (on top of normal mining XP)
+    discoveryXp = 50,
+
+    -- Discoverer gets a time-limited sell bonus
+    sellBonusDuration = 3600,  -- seconds (1 hour)
+    sellBonusMultiplier = 3.0, -- 3x sell price during bonus window
+
+    -- Rare find items and their weights (higher = more common among rares)
+    items = {
+        ['pure_gold_nugget'] = {
+            label = 'Pure Gold Nugget',
+            weight = 40,
+            sellPrice = 2500,
+            description = 'A pristine gold nugget of exceptional purity',
+        },
+        ['ancient_fossil'] = {
+            label = 'Ancient Fossil',
+            weight = 30,
+            sellPrice = 3500,
+            description = 'A remarkably preserved prehistoric fossil',
+        },
+        ['flawless_crystal'] = {
+            label = 'Flawless Crystal',
+            weight = 20,
+            sellPrice = 5000,
+            description = 'A crystal of extraordinary clarity and size',
+        },
+        ['meteorite_fragment'] = {
+            label = 'Meteorite Fragment',
+            weight = 10,
+            sellPrice = 8000,
+            description = 'A fragment of extraterrestrial origin',
+        },
+    },
 }
 
 -----------------------------------------------------------
