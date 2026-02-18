@@ -68,4 +68,142 @@ function DB.SetLevel(citizenId, level, experience)
     ]], { level, experience, citizenId })
 end
 
+-----------------------------------------------------------
+-- CONTRACTS (Phase 7)
+-----------------------------------------------------------
+
+--- Gets a player's active contracts.
+---@param citizenId string
+---@return table[]
+function DB.GetActiveContracts(citizenId)
+    return MySQL.query.await([[
+        SELECT * FROM mining_contracts
+        WHERE player_id = ? AND status = 'active' AND expires_at > NOW()
+        ORDER BY accepted_at ASC
+    ]], { citizenId }) or {}
+end
+
+--- Gets a player's completed contracts count for today.
+---@param citizenId string
+---@return number
+function DB.GetTodayCompletedCount(citizenId)
+    return MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_contracts
+        WHERE player_id = ? AND status = 'completed'
+          AND DATE(completed_at) = CURDATE()
+    ]], { citizenId }) or 0
+end
+
+--- Creates a new contract for a player.
+---@param citizenId string
+---@param contractType string
+---@param tier string
+---@param label string
+---@param target number
+---@param extraData string|nil
+---@param expiresAt string MySQL TIMESTAMP string
+---@return number|nil insertId
+function DB.CreateContract(citizenId, contractType, tier, label, target, extraData, expiresAt)
+    return MySQL.insert.await([[
+        INSERT INTO mining_contracts (player_id, contract_type, tier, label, target, extra_data, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ]], { citizenId, contractType, tier, label, target, extraData, expiresAt })
+end
+
+--- Updates progress on a contract.
+---@param contractId number
+---@param amount number amount to add
+---@return number newProgress
+function DB.AddContractProgress(contractId, amount)
+    MySQL.update.await([[
+        UPDATE mining_contracts
+        SET progress = progress + ?
+        WHERE id = ? AND status = 'active'
+    ]], { amount, contractId })
+
+    return MySQL.scalar.await([[
+        SELECT progress FROM mining_contracts WHERE id = ?
+    ]], { contractId }) or 0
+end
+
+--- Marks a contract as completed.
+---@param contractId number
+function DB.CompleteContract(contractId)
+    MySQL.update.await([[
+        UPDATE mining_contracts
+        SET status = 'completed', completed_at = NOW()
+        WHERE id = ?
+    ]], { contractId })
+end
+
+--- Expires old contracts that passed their deadline.
+---@param citizenId string
+function DB.ExpireContracts(citizenId)
+    MySQL.update.await([[
+        UPDATE mining_contracts
+        SET status = 'expired'
+        WHERE player_id = ? AND status = 'active' AND expires_at <= NOW()
+    ]], { citizenId })
+end
+
+--- Gets a count of active contracts for a player.
+---@param citizenId string
+---@return number
+function DB.CountActiveContracts(citizenId)
+    return MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_contracts
+        WHERE player_id = ? AND status = 'active' AND expires_at > NOW()
+    ]], { citizenId }) or 0
+end
+
+-----------------------------------------------------------
+-- RARE FINDS / DISCOVERIES (Phase 7)
+-----------------------------------------------------------
+
+--- Records a rare find discovery.
+---@param citizenId string
+---@param item string
+---@param zone string|nil
+---@param sellBonusUntil string|nil MySQL TIMESTAMP
+---@return number|nil insertId
+function DB.RecordDiscovery(citizenId, item, zone, sellBonusUntil)
+    return MySQL.insert.await([[
+        INSERT INTO mining_discoveries (player_id, item, zone, sell_bonus_until)
+        VALUES (?, ?, ?, ?)
+    ]], { citizenId, item, zone, sellBonusUntil })
+end
+
+--- Gets a player's active sell bonus (if any).
+---@param citizenId string
+---@return table|nil { item, sell_bonus_until }
+function DB.GetActiveSellBonus(citizenId)
+    return MySQL.single.await([[
+        SELECT item, sell_bonus_until FROM mining_discoveries
+        WHERE player_id = ? AND sell_bonus_until > NOW()
+        ORDER BY sell_bonus_until DESC
+        LIMIT 1
+    ]], { citizenId })
+end
+
+--- Gets the most recent server-wide discoveries.
+---@param limit number
+---@return table[]
+function DB.GetRecentDiscoveries(limit)
+    return MySQL.query.await([[
+        SELECT player_id, item, zone, discovered_at
+        FROM mining_discoveries
+        ORDER BY discovered_at DESC
+        LIMIT ?
+    ]], { limit or 5 }) or {}
+end
+
+--- Gets total discovery count for a player.
+---@param citizenId string
+---@return number
+function DB.GetDiscoveryCount(citizenId)
+    return MySQL.scalar.await([[
+        SELECT COUNT(*) FROM mining_discoveries WHERE player_id = ?
+    ]], { citizenId }) or 0
+end
+
 return DB

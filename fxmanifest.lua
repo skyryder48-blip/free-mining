@@ -20,6 +20,7 @@ client_scripts {
     'client/processing.lua',
     'client/hazards.lua',
     'client/explosives.lua',
+    'client/contracts.lua',
 }
 
 server_scripts {
@@ -29,6 +30,7 @@ server_scripts {
     'server/processing.lua',
     'server/hazards.lua',
     'server/explosives.lua',
+    'server/contracts.lua',
 }
 
 ui_page 'html/minigame.html'

@@ -357,6 +357,12 @@ lib.callback.register('mining:server:blastMine', function(src, data)
     DB.AddMiningProgress(citizenId, cfg.xpReward, totalOre)
     checkLevelUp(src, citizenId)
 
+    -- Advance contracts (Phase 7)
+    if AdvanceContracts then
+        AdvanceContracts(src, citizenId, 'blast_veins', 1, nil)
+        AdvanceContracts(src, citizenId, 'mine_ore', totalOre, nil)
+    end
+
     -- Roll for hazard (with multiplier)
     if not gasExploded then
         local subZone = findSubZone(subZoneName)

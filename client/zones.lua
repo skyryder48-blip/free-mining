@@ -224,6 +224,24 @@ local function initInteractionPoints()
             },
         },
     })
+
+    -- Contract Board NPC (Phase 7)
+    if Config.Locations.contractBoard then
+        local boardPed = spawnNpc(Config.Locations.contractBoard)
+        if boardPed then
+            exports.ox_target:addLocalEntity(boardPed, {
+                {
+                    name = 'mining_contract_board',
+                    label = Config.Locations.contractBoard.label,
+                    icon = 'fas fa-scroll',
+                    distance = 2.5,
+                    onSelect = function()
+                        TriggerEvent('mining:client:openContractBoard')
+                    end,
+                },
+            })
+        end
+    end
 end
 
 -----------------------------------------------------------

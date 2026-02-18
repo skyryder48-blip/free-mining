@@ -325,6 +325,29 @@ lib.callback.register('mining:server:extract', function(src, data)
         TriggerRockslide(subZoneName)
     end
 
+    -- Roll for rare find (Phase 7)
+    local rareFind = nil
+    if RollRareFind then
+        local rareKey = RollRareFind(mode, minigameResult, vein.quality)
+        if rareKey then
+            rareFind = ProcessRareFind(src, citizenId, rareKey, zoneName)
+        end
+    end
+
+    -- Advance contracts (Phase 7)
+    if AdvanceContracts then
+        local isGem = oreDef.processing == 'cut'
+        AdvanceContracts(src, citizenId, 'mine_ore', amount, nil)
+        AdvanceContracts(src, citizenId, 'mine_specific', amount, oreType)
+        AdvanceContracts(src, citizenId, 'mine_zone', amount, zoneName)
+        if isGem then
+            AdvanceContracts(src, citizenId, 'mine_gems', amount, nil)
+        end
+        if minigameResult == 'green' then
+            AdvanceContracts(src, citizenId, 'perfect_hits', 1, nil)
+        end
+    end
+
     return {
         success = true,
         oreType = oreType,
@@ -334,6 +357,7 @@ lib.callback.register('mining:server:extract', function(src, data)
         veinQuality = vein.quality,
         veinRemaining = math.max(0, vein.remaining - 1),
         xpGained = 10,
+        rareFind = rareFind,
     }
 end)
 
@@ -385,7 +409,13 @@ lib.callback.register('mining:server:sell', function(src, data)
         return { success = false, reason = 'Failed to remove items' }
     end
 
-    local total = math.floor(price * amount * qualityMul)
+    -- Check for rare find sell bonus (Phase 7)
+    local rareBonusMul = 1.0
+    if GetRareSellBonus then
+        rareBonusMul = GetRareSellBonus(citizenId, item)
+    end
+
+    local total = math.floor(price * amount * qualityMul * rareBonusMul)
     local player = exports.qbx_core:GetPlayer(src)
     if player then
         player.Functions.AddMoney('cash', total, 'mining-sale')
@@ -393,12 +423,18 @@ lib.callback.register('mining:server:sell', function(src, data)
 
     DB.AddEarnings(citizenId, total)
 
+    -- Advance earn_cash contracts (Phase 7)
+    if AdvanceContracts then
+        AdvanceContracts(src, citizenId, 'earn_cash', total, nil)
+    end
+
     return {
         success = true,
         item = item,
         amount = amount,
         total = total,
         totalEarned = total,
+        rareSellBonus = rareBonusMul > 1.0,
     }
 end)
 
