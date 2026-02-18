@@ -18,6 +18,7 @@ client_scripts {
     'client/mining.lua',
     'client/processing.lua',
     'client/hazards.lua',
+    'client/explosives.lua',
 }
 
 server_scripts {
@@ -26,6 +27,7 @@ server_scripts {
     'server/main.lua',
     'server/processing.lua',
     'server/hazards.lua',
+    'server/explosives.lua',
 }
 
 ui_page 'html/minigame.html'

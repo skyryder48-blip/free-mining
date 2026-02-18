@@ -475,6 +475,11 @@ lib.callback.register('mining:server:buyItem', function(src, data)
             uses = Config.Equipment['respirator'].maxUses,
             durability = 100,
         }
+    elseif itemName == 'detonator' then
+        metadata = {
+            uses = Config.Explosives.items['detonator'].maxUses,
+            durability = 100,
+        }
     end
 
     for _ = 1, amount do

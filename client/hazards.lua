@@ -182,6 +182,7 @@ startBoulderTargets = function(boulderPositions, boulderOres)
             label = ('Mine Boulder (%s inside)'):format(oreLabel)
         end
 
+        local boulderCoords = { x = pos.x, y = pos.y, z = pos.z }
         local targetId = exports.ox_target:addSphereZone({
             coords = vec3(pos.x, pos.y, pos.z),
             radius = 1.5,
@@ -199,6 +200,21 @@ startBoulderTargets = function(boulderPositions, boulderOres)
                         return activeCaveIn and activeCaveIn.phase == 'collapse'
                             and activeCaveIn.boulders[boulderIndex]
                             and not LocalPlayer.state.isMining
+                    end,
+                },
+                {
+                    name = 'demolish_boulder_' .. boulderIndex,
+                    label = 'Demolish Boulder (Explosive)',
+                    icon = 'fas fa-bomb',
+                    distance = 2.5,
+                    onSelect = function()
+                        TriggerEvent('mining:client:startDemolition', activeCaveIn.subZoneName, 'boulder', boulderIndex, boulderCoords)
+                    end,
+                    canInteract = function()
+                        return activeCaveIn and activeCaveIn.phase == 'collapse'
+                            and activeCaveIn.boulders[boulderIndex]
+                            and not LocalPlayer.state.isMining
+                            and CanDemolish ~= nil and CanDemolish()
                     end,
                 },
             },
@@ -491,6 +507,7 @@ startDebrisTargets = function(debrisPositions)
 
     for i, pos in ipairs(debrisPositions) do
         local debrisIndex = i
+        local debrisCoords = { x = pos.x, y = pos.y, z = pos.z }
 
         local targetId = exports.ox_target:addSphereZone({
             coords = vec3(pos.x, pos.y, pos.z),
@@ -509,6 +526,21 @@ startDebrisTargets = function(debrisPositions)
                         return activeRockslide and activeRockslide.phase == 'slide'
                             and activeRockslide.debris[debrisIndex]
                             and not LocalPlayer.state.isMining
+                    end,
+                },
+                {
+                    name = 'demolish_debris_' .. debrisIndex,
+                    label = 'Demolish Debris (Explosive)',
+                    icon = 'fas fa-bomb',
+                    distance = 2.5,
+                    onSelect = function()
+                        TriggerEvent('mining:client:startDemolition', activeRockslide.subZoneName, 'debris', debrisIndex, debrisCoords)
+                    end,
+                    canInteract = function()
+                        return activeRockslide and activeRockslide.phase == 'slide'
+                            and activeRockslide.debris[debrisIndex]
+                            and not LocalPlayer.state.isMining
+                            and CanDemolish ~= nil and CanDemolish()
                     end,
                 },
             },

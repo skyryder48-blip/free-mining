@@ -232,4 +232,34 @@
         description = 'Structural support beam. Place to reduce cave-in risk.',
     },
 
+    -- Explosives
+    ['dynamite'] = {
+        label = 'Dynamite',
+        weight = 2000,
+        stack = true,
+        close = true,
+        description = 'Explosive charge for blast mining. Destroys entire veins.',
+    },
+    ['blasting_charge'] = {
+        label = 'Blasting Charge',
+        weight = 3000,
+        stack = true,
+        close = true,
+        description = 'Heavy-duty explosive for demolition and quarry blasting.',
+    },
+    ['detonator'] = {
+        label = 'Detonator',
+        weight = 1500,
+        stack = false,
+        close = true,
+        description = 'Remote detonator for explosives. 50 uses.',
+    },
+    ['detonator_wire'] = {
+        label = 'Detonator Wire',
+        weight = 500,
+        stack = true,
+        close = true,
+        description = 'Wiring kit for connecting multiple charges together.',
+    },
+
 ]]

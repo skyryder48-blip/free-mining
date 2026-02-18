@@ -231,6 +231,7 @@ local function cleanup()
 
     CleanupVeins()
     CleanupHazards()
+    if CleanupExplosives then CleanupExplosives() end
     activeZone = nil
     activeZoneKey = nil
 end

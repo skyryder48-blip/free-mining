@@ -89,6 +89,28 @@ local function updateMetadata(src, slotNum, existingMeta, updates)
 end
 
 -----------------------------------------------------------
+-- GLOBAL STATE ACCESS (used by explosives.lua)
+-----------------------------------------------------------
+
+--- Checks if a gas leak is currently active in a sub-zone.
+---@param subZoneName string
+---@return boolean
+function IsGasLeakActive(subZoneName)
+    local hazard = activeHazards[subZoneName]
+    return hazard ~= nil and hazard.type == 'gas_leak'
+end
+
+--- Clears an active gas leak in a sub-zone (called by gas explosions).
+---@param subZoneName string
+function ClearGasLeak(subZoneName)
+    local hazard = activeHazards[subZoneName]
+    if hazard and hazard.type == 'gas_leak' then
+        activeHazards[subZoneName] = nil
+        TriggerClientEvent('mining:client:gasLeakEnd', -1, subZoneName)
+    end
+end
+
+-----------------------------------------------------------
 -- HAZARD ROLL (called after extraction)
 -----------------------------------------------------------
 

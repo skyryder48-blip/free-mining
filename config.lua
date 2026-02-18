@@ -317,6 +317,11 @@ Config.Shop = {
         { item = 'helmet_battery',   price = 50 },
         { item = 'respirator',       price = 200 },
         { item = 'wooden_support',   price = 75 },
+        -- Explosives
+        { item = 'dynamite',         price = 750,  levelRequired = 5 },
+        { item = 'blasting_charge',  price = 1400, levelRequired = 8 },
+        { item = 'detonator',        price = 2000, levelRequired = 5 },
+        { item = 'detonator_wire',   price = 150 },
     },
 }
 
@@ -360,6 +365,17 @@ Config.Zones = {
                 veinDensity = 5,
                 hazardWeight = 0.3,
                 isDark = false,
+                blastSites = {
+                    {
+                        center = vec3(208.0, 6.0, 0.0),
+                        slots = {
+                            vec3(206.0, 5.0, 0.0),
+                            vec3(210.0, 5.0, 0.0),
+                            vec3(208.0, 8.0, 0.0),
+                        },
+                        safeZone = vec3(200.0, 6.0, 0.0),
+                    },
+                },
             },
             {
                 name = 'quarry_lower',
@@ -386,6 +402,17 @@ Config.Zones = {
                 veinDensity = 5,
                 hazardWeight = 0.5,
                 isDark = false,
+                blastSites = {
+                    {
+                        center = vec3(212.0, 27.0, 0.0),
+                        slots = {
+                            vec3(210.0, 26.0, 0.0),
+                            vec3(214.0, 26.0, 0.0),
+                            vec3(212.0, 29.0, 0.0),
+                        },
+                        safeZone = vec3(202.0, 27.0, 0.0),
+                    },
+                },
             },
         },
     },
@@ -593,6 +620,10 @@ Config.Cooldowns = {
     purchase      = 500,
     drillBit      = 1000,
     helmetBattery = 1000,
+    blasting      = 2000,
+    demolition    = 2000,
+    quarryBlast   = 3000,
+    pickupScatter = 300,
 }
 
 -----------------------------------------------------------
@@ -812,5 +843,202 @@ Config.Equipment = {
         price = 75,
         -- placeable item, consumed on use
         -- reduces cave-in chance in sub-zone for Config.CaveIn.supportDuration
+    },
+}
+
+-----------------------------------------------------------
+-- EXPLOSIVES
+-----------------------------------------------------------
+
+Config.Explosives = {
+    -- Items
+    items = {
+        ['dynamite'] = {
+            label = 'Dynamite',
+            price = 750,
+            levelRequired = 5,
+            description = 'Explosive charge for blast mining veins',
+        },
+        ['blasting_charge'] = {
+            label = 'Blasting Charge',
+            price = 1400,
+            levelRequired = 8,
+            description = 'Heavy-duty charge for demolition and quarry blasting',
+        },
+        ['detonator'] = {
+            label = 'Detonator',
+            price = 2000,
+            maxUses = 50,
+            levelRequired = 5,
+            description = 'Remote detonator. Required for all explosive operations.',
+        },
+        ['detonator_wire'] = {
+            label = 'Detonator Wire',
+            price = 150,
+            description = 'Wiring kit for connecting multiple charges',
+        },
+    },
+
+    -----------------------------------------------------------
+    -- BLAST MINING (Concept 1) - Vein detonation
+    -----------------------------------------------------------
+    blastMining = {
+        -- Dynamite consumed per vein blast
+        dynamitePerBlast = 1,
+
+        -- Safe distance: player must be this far from vein to detonate (units)
+        safeDistance = 8.0,
+
+        -- Damage if player is within blast radius when detonating
+        blastDamage = 40,
+        blastRadius = 6.0,
+
+        -- Scattered ore pickups spawned after detonation
+        scatterCount = { min = 8, max = 12 },
+        scatterRadius = 6.0,
+
+        -- Time (ms) for player to collect each scatter pickup
+        pickupTime = 1500,
+
+        -- How long scattered pickups persist before despawning (ms)
+        pickupPersistence = 150000, -- 2.5 minutes
+
+        -- Yield per pickup is derived from vein remaining/quality
+        -- No minigame bonus (traded precision for speed)
+
+        -- Hazard multiplier: blast mining multiplies the hazard roll chance
+        hazardMultiplier = 3.0,
+
+        -- Place charge animation duration (ms)
+        placeTime = 4000,
+
+        -- Prop for scattered ore pickups
+        scatterModel = 'prop_rock_4_c',
+        scatterPickupRadius = 1.0, -- ox_target interaction radius
+
+        -- XP per blast
+        xpReward = 15,
+    },
+
+    -----------------------------------------------------------
+    -- DEMOLITION CHARGES (Concept 3) - Obstacle clearing
+    -----------------------------------------------------------
+    demolition = {
+        -- Charges consumed per obstacle type
+        chargesPerObstacle = 1,     -- boulders / debris
+        chargesPerPassage = 2,      -- sealed passages
+
+        -- Safe distance for demolition detonation
+        safeDistance = 6.0,
+
+        -- Blast damage / radius
+        blastDamage = 30,
+        blastRadius = 5.0,
+
+        -- Rubble pickups from demolishing obstacles (LESS than manual mining)
+        rubbleCount = { min = 2, max = 3 },
+        pickupTime = 1500,
+
+        -- Rubble loot: stone yield per pickup
+        rubbleStoneYield = { min = 1, max = 3 },
+        -- Ore chance per rubble pickup (same loot table as cave-in boulders)
+        rubbleOreChance = 25,
+
+        -- Sealed passage config
+        passageVeinCount = { min = 2, max = 3 },
+        passageDuration = 600000, -- 10 minutes before passage collapses
+        -- Sealed passages use cave-in loot rolls for their pickups
+        passageRubbleCount = { min = 3, max = 5 },
+
+        -- Place charge animation duration (ms)
+        placeTime = 3000,
+
+        -- Prop for rubble pickups
+        rubbleModel = 'prop_rock_4_b',
+        rubblePickupRadius = 1.0,
+
+        -- XP per demolition
+        xpReward = 10,
+    },
+
+    -----------------------------------------------------------
+    -- QUARRY BLASTING (Concept 4) - Pattern detonation
+    -----------------------------------------------------------
+    quarryBlasting = {
+        -- Charges required per blast site (3 placement slots)
+        chargesPerBlast = 3,
+
+        -- Wiring kit consumed per blast
+        wiresPerBlast = 1,
+
+        -- Wiring animation duration (ms)
+        wiringTime = 5000,
+
+        -- Safe distance: must retreat to safe zone before detonation
+        safeDistance = 12.0,
+
+        -- Blast damage / radius (bigger than underground)
+        blastDamage = 50,
+        blastRadius = 10.0,
+
+        -- Rubble pile pickups in the blast crater
+        rubbleCount = { min = 14, max = 20 },
+        pickupTime = 1200, -- faster, loose surface material
+
+        -- Crater persistence (ms)
+        craterDuration = 300000, -- 5 minutes
+
+        -- Head start for the blaster before others see pickups (ms)
+        blasterHeadStart = 10000,
+
+        -- Blast site cooldown after use (ms)
+        siteCooldown = 900000, -- 15 minutes
+
+        -- Charge placement: optimal placement increases rubble count
+        -- Green placement (close to center): full rubble count
+        -- Yellow placement (moderate): 80% rubble
+        -- Red placement (far from center): 65% rubble
+        placementQuality = {
+            green  = 1.0,
+            yellow = 0.80,
+            red    = 0.65,
+        },
+
+        -- Place charge animation duration per slot (ms)
+        placeTime = 3000,
+
+        -- Prop for rubble piles
+        rubbleModel = 'prop_rock_4_b',
+        rubblePickupRadius = 1.2,
+
+        -- Rubble loot: random ore from quarry ore table
+        -- Stone yield per rubble pile
+        rubbleStoneYield = { min = 1, max = 4 },
+
+        -- XP per quarry blast
+        xpReward = 25,
+    },
+
+    -----------------------------------------------------------
+    -- GAS EXPLOSION (triggered when detonating during gas leak)
+    -----------------------------------------------------------
+    gasExplosion = {
+        -- Devastating damage in all instances
+        damage = 80,
+        radius = 15.0,
+
+        -- Screen shake
+        shakeAmplitude = 2.0,
+        shakeDuration = 4000,
+
+        -- Gas leak is instantly cleared by the explosion
+        clearsGas = true,
+
+        -- Ore scatters are NOT destroyed (player still gets them)
+        destroysScatter = false,
+
+        -- Visual effect
+        explosionType = 2,  -- GTA explosion type (large fire)
+        flashEffect = 'SwitchHUDIn',
     },
 }
