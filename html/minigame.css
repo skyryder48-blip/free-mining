@@ -1,0 +1,46 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#minigame-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+#minigame-canvas {
+    border-radius: 50%;
+    filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.6));
+}
+
+#minigame-hint {
+    color: #e0e0e0;
+    font-size: 14px;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+}
+
+#minigame-hint span {
+    color: #ffd700;
+    font-weight: 700;
+}
