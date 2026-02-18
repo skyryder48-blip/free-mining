@@ -187,6 +187,7 @@ local function cleanup()
     activeBlips = {}
 
     CleanupVeins()
+    CleanupHazards()
     activeZone = nil
 end
 

@@ -186,4 +186,34 @@
         description = 'Rough stone. Construction material.',
     },
 
+    -- Safety Equipment (Phase 3)
+    ['mining_helmet'] = {
+        label = 'Mining Helmet',
+        weight = 2000,
+        stack = false,
+        close = true,
+        description = 'Helmet with built-in lamp. Requires batteries.',
+    },
+    ['helmet_battery'] = {
+        label = 'Helmet Battery',
+        weight = 300,
+        stack = true,
+        close = true,
+        description = 'Replacement battery for mining helmet. Restores 50 charge.',
+    },
+    ['respirator'] = {
+        label = 'Respirator',
+        weight = 1000,
+        stack = false,
+        close = true,
+        description = 'Filters toxic gas in mines. 100 uses.',
+    },
+    ['wooden_support'] = {
+        label = 'Wooden Support',
+        weight = 8000,
+        stack = true,
+        close = true,
+        description = 'Structural support beam. Place to reduce cave-in risk.',
+    },
+
 ]]

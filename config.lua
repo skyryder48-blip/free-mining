@@ -285,6 +285,10 @@ Config.Shop = {
         { item = 'rock_drill',       price = 2500 },
         { item = 'drill_bit',        price = 400 },
         { item = 'propane_canister', price = 25 },
+        { item = 'mining_helmet',    price = 350 },
+        { item = 'helmet_battery',   price = 50 },
+        { item = 'respirator',       price = 200 },
+        { item = 'wooden_support',   price = 75 },
     },
 }
 
@@ -315,12 +319,13 @@ Config.Zones = {
                     raw_quartz = 30,
                     ore_silver = 20,
                 },
-                -- Rectangular bounds for vein spawning inside this sub-zone
                 spawnArea = {
                     min = vec3(1.0, 1.0, 0.0),
                     max = vec3(9.0, 9.0, 0.0),
                 },
-                veinDensity = 3, -- target number of active veins
+                veinDensity = 3,
+                hazardWeight = 0.5,  -- low hazard near entrance
+                isDark = false,
             },
             {
                 name = 'cave_main_gallery',
@@ -345,6 +350,8 @@ Config.Zones = {
                     max = vec3(29.0, 14.0, 0.0),
                 },
                 veinDensity = 4,
+                hazardWeight = 1.0,  -- standard hazard
+                isDark = true,
             },
             {
                 name = 'cave_deep_passage',
@@ -368,6 +375,8 @@ Config.Zones = {
                     max = vec3(49.0, 9.0, 0.0),
                 },
                 veinDensity = 3,
+                hazardWeight = 1.5,  -- high hazard deep inside
+                isDark = true,
             },
         },
     },
@@ -397,6 +406,8 @@ Config.Zones = {
                     max = vec3(119.0, 7.0, 0.0),
                 },
                 veinDensity = 4,
+                hazardWeight = 0.8,
+                isDark = true,
             },
             {
                 name = 'shaft_level2',
@@ -421,6 +432,8 @@ Config.Zones = {
                     max = vec3(124.0, 24.0, 0.0),
                 },
                 veinDensity = 4,
+                hazardWeight = 1.5,
+                isDark = true,
             },
         },
     },
@@ -473,12 +486,13 @@ Config.BaseYield = {
 -----------------------------------------------------------
 
 Config.Cooldowns = {
-    mining    = 500,
-    smelting  = 1000,
-    cutting   = 1000,
-    selling   = 500,
-    purchase  = 500,
-    drillBit  = 1000,
+    mining        = 500,
+    smelting      = 1000,
+    cutting       = 1000,
+    selling       = 500,
+    purchase      = 500,
+    drillBit      = 1000,
+    helmetBattery = 1000,
 }
 
 -----------------------------------------------------------
@@ -547,4 +561,108 @@ Config.IndicatorProps = {
     raw_quartz   = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
     raw_emerald  = { model = 'prop_rock_4_cl2',   count = 2, offsetRange = 0.8 },
     raw_diamond  = { model = 'prop_rock_4_cl2',   count = 3, offsetRange = 1.0 },
+}
+
+-----------------------------------------------------------
+-- HAZARDS (Phase 3)
+-----------------------------------------------------------
+
+Config.Hazards = {
+    -- Base chance (0-100) to trigger a hazard per successful extraction
+    -- Actual chance = baseChance * subZone.hazardWeight
+    baseChance = 8,
+
+    -- Which hazard types can occur (weights for random selection when a hazard triggers)
+    types = {
+        cave_in  = 60,  -- 60% of hazard rolls become cave-ins
+        gas_leak = 40,  -- 40% of hazard rolls become gas leaks
+    },
+}
+
+-----------------------------------------------------------
+-- CAVE-IN
+-----------------------------------------------------------
+
+Config.CaveIn = {
+    -- Warning phase: rumble and dust before the collapse
+    warningDuration = 8000,    -- 8 seconds of warning
+
+    -- Main collapse phase
+    collapseDuration = 90000,  -- 90 seconds total event
+
+    -- Screen shake during warning
+    warningShakeAmplitude = 0.2,
+    -- Screen shake during collapse
+    collapseShakeAmplitude = 0.8,
+    collapseShakeDuration = 3000,
+
+    -- Boulders spawned to block the area
+    boulderCount = 3,
+    boulderModel = 'prop_rock_4_big',
+    boulderSpreadRadius = 3.0,  -- how far from center boulders spawn
+
+    -- Mining boulders
+    boulderMineTime = 10000,   -- ms to mine a boulder
+    boulderStoneYield = { min = 2, max = 5 },
+    boulderOreChance = 25,     -- 25% chance a boulder also yields ore
+
+    -- Damage to players caught in collapse (per second, during first 5s)
+    collapseDamage = 5,
+    collapseDamageDuration = 5000,
+
+    -- Wooden support effect
+    supportReduction = 0.5,    -- chance (0-1) that a support prevents a cave-in (50% block rate)
+    supportDuration = 300000,  -- 5 minutes of protection per support
+}
+
+-----------------------------------------------------------
+-- GAS LEAK
+-----------------------------------------------------------
+
+Config.GasLeak = {
+    -- Warning before gas reaches dangerous levels
+    warningDuration = 5000,    -- 5 seconds warning
+
+    -- Active gas duration
+    activeDuration = 45000,    -- 45 seconds of active gas
+
+    -- Damage per second to players without respirator
+    damagePerSecond = 3,
+
+    -- Visual effect intensity (0.0-1.0)
+    fogIntensity = 0.7,
+
+    -- Respirator uses consumed per second during active gas
+    respiratorDrainPerTick = 1,
+}
+
+-----------------------------------------------------------
+-- SAFETY EQUIPMENT
+-----------------------------------------------------------
+
+Config.Equipment = {
+    ['mining_helmet'] = {
+        label = 'Mining Helmet',
+        price = 350,
+        maxBattery = 100,        -- battery units
+        drainRate = 1,           -- units drained per 30 seconds in dark zone
+        lightRange = 15.0,       -- flashlight range
+        lightIntensity = 5.0,    -- flashlight brightness
+    },
+    ['helmet_battery'] = {
+        label = 'Helmet Battery',
+        price = 50,
+        restoreAmount = 50,      -- restores 50 battery units
+    },
+    ['respirator'] = {
+        label = 'Respirator',
+        price = 200,
+        maxUses = 100,           -- total uses before replacement
+    },
+    ['wooden_support'] = {
+        label = 'Wooden Support',
+        price = 75,
+        -- placeable item, consumed on use
+        -- reduces cave-in chance in sub-zone for Config.CaveIn.supportDuration
+    },
 }

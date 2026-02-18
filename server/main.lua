@@ -86,12 +86,15 @@ local function degradeTool(src, slot, toolName, wearAmount)
 
     if newUses <= 0 then
         exports.ox_inventory:RemoveItem(src, toolName, 1, nil, slot.slot)
-        lib.notify(src, { description = ('%s has broken!'):format(Config.Tools[toolName].label), type = 'error' })
+        TriggerClientEvent('ox_lib:notify', src, { description = ('%s has broken!'):format(Config.Tools[toolName].label), type = 'error' })
     else
-        exports.ox_inventory:SetMetadata(src, slot.slot, {
-            uses = newUses,
-            durability = newDurability,
-        })
+        local meta = {}
+        if slot.metadata then
+            for k, v in pairs(slot.metadata) do meta[k] = v end
+        end
+        meta.uses = newUses
+        meta.durability = newDurability
+        exports.ox_inventory:SetMetadata(src, slot.slot, meta)
     end
 end
 
@@ -165,10 +168,13 @@ exports.ox_inventory:registerHook('usingItem', function(payload)
     local newUses = math.min(maxDur, (targetSlot.metadata.uses or 0) + Config.DrillBit.restoreAmount)
     local newDurability = math.floor((newUses / maxDur) * 100 + 0.5)
 
-    exports.ox_inventory:SetMetadata(src, targetSlot.slot, {
-        uses = newUses,
-        durability = newDurability,
-    })
+    local meta = {}
+    if targetSlot.metadata then
+        for k, v in pairs(targetSlot.metadata) do meta[k] = v end
+    end
+    meta.uses = newUses
+    meta.durability = newDurability
+    exports.ox_inventory:SetMetadata(src, targetSlot.slot, meta)
 
     TriggerClientEvent('mining:client:useDrillBit', src, {
         success = true,
@@ -177,7 +183,7 @@ exports.ox_inventory:registerHook('usingItem', function(payload)
     })
 
     return true -- consume the drill_bit
-end, {})
+end, { itemFilter = { drill_bit = true } })
 
 -----------------------------------------------------------
 -- MINING CALLBACK
@@ -247,6 +253,15 @@ lib.callback.register('mining:server:extract', function(src, data)
 
     -- Track stats
     DB.AddMiningProgress(citizenId, 10, amount)
+
+    -- Roll for hazard after successful extraction
+    local subZoneName = data.subZoneName
+    local hazardType = RollHazard(subZoneName)
+    if hazardType == 'cave_in' then
+        TriggerCaveIn(subZoneName)
+    elseif hazardType == 'gas_leak' then
+        TriggerGasLeak(subZoneName)
+    end
 
     return {
         success = true,
@@ -368,18 +383,25 @@ lib.callback.register('mining:server:buyItem', function(src, data)
     -- Process purchase
     player.Functions.RemoveMoney('cash', totalCost, 'mining-shop')
 
-    -- Tools get metadata with durability
+    -- Build metadata based on item type
     local metadata = nil
     if Config.Tools[itemName] then
         metadata = {
             uses = Config.Tools[itemName].maxDurability,
             durability = 100,
         }
-    end
-
-    -- Propane gets uses metadata
-    if itemName == 'propane_canister' then
+    elseif itemName == 'propane_canister' then
         metadata = { uses = Config.Smelting.propaneUsesPerCanister }
+    elseif itemName == 'mining_helmet' then
+        metadata = {
+            battery = Config.Equipment['mining_helmet'].maxBattery,
+            durability = 100,
+        }
+    elseif itemName == 'respirator' then
+        metadata = {
+            uses = Config.Equipment['respirator'].maxUses,
+            durability = 100,
+        }
     end
 
     for _ = 1, amount do
