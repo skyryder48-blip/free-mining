@@ -89,6 +89,19 @@ local function createVeinTarget(vein)
                     return not LocalPlayer.state.isMining
                 end,
             },
+            {
+                name = 'blast_vein_' .. vein.id,
+                label = ('Blast Mine %s (%d remaining)'):format(oreLabel, vein.remaining),
+                icon = 'fas fa-bomb',
+                distance = 2.0,
+                onSelect = function()
+                    TriggerEvent('mining:client:startBlastMining', activeSubZone, vein.id)
+                end,
+                canInteract = function()
+                    return not LocalPlayer.state.isMining
+                        and CanBlastMine ~= nil and CanBlastMine()
+                end,
+            },
         },
     })
 

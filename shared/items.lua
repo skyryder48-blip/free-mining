@@ -177,6 +177,22 @@
         description = 'Brilliantly cut diamond',
     },
 
+    -- Quarry Ores (Phase 4)
+    ['limestone'] = {
+        label = 'Limestone',
+        weight = 5000,
+        stack = true,
+        close = false,
+        description = 'Quarried limestone block',
+    },
+    ['sandstone'] = {
+        label = 'Sandstone',
+        weight = 4000,
+        stack = true,
+        close = false,
+        description = 'Quarried sandstone',
+    },
+
     -- Materials
     ['stone'] = {
         label = 'Stone',
@@ -184,6 +200,66 @@
         stack = true,
         close = false,
         description = 'Rough stone. Construction material.',
+    },
+
+    -- Safety Equipment (Phase 3)
+    ['mining_helmet'] = {
+        label = 'Mining Helmet',
+        weight = 2000,
+        stack = false,
+        close = true,
+        description = 'Helmet with built-in lamp. Requires batteries.',
+    },
+    ['helmet_battery'] = {
+        label = 'Helmet Battery',
+        weight = 300,
+        stack = true,
+        close = true,
+        description = 'Replacement battery for mining helmet. Restores 50 charge.',
+    },
+    ['respirator'] = {
+        label = 'Respirator',
+        weight = 1000,
+        stack = false,
+        close = true,
+        description = 'Filters toxic gas in mines. 100 uses.',
+    },
+    ['wooden_support'] = {
+        label = 'Wooden Support',
+        weight = 8000,
+        stack = true,
+        close = true,
+        description = 'Structural support beam. Place to reduce cave-in risk.',
+    },
+
+    -- Explosives
+    ['dynamite'] = {
+        label = 'Dynamite',
+        weight = 2000,
+        stack = true,
+        close = true,
+        description = 'Explosive charge for blast mining. Destroys entire veins.',
+    },
+    ['blasting_charge'] = {
+        label = 'Blasting Charge',
+        weight = 3000,
+        stack = true,
+        close = true,
+        description = 'Heavy-duty explosive for demolition and quarry blasting.',
+    },
+    ['detonator'] = {
+        label = 'Detonator',
+        weight = 1500,
+        stack = false,
+        close = true,
+        description = 'Remote detonator for explosives. 50 uses.',
+    },
+    ['detonator_wire'] = {
+        label = 'Detonator Wire',
+        weight = 500,
+        stack = true,
+        close = true,
+        description = 'Wiring kit for connecting multiple charges together.',
     },
 
 ]]

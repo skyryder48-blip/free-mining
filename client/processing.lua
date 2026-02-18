@@ -262,7 +262,7 @@ end
 -- EVENT HANDLERS
 -----------------------------------------------------------
 
-RegisterNetEvent('mining:client:openFurnace', function()
+AddEventHandler('mining:client:openFurnace', function()
     local ores = getSmeltableOres()
 
     if #ores == 0 then
@@ -307,7 +307,7 @@ RegisterNetEvent('mining:client:openFurnace', function()
     lib.showContext('mining_furnace')
 end)
 
-RegisterNetEvent('mining:client:openCuttingBench', function()
+AddEventHandler('mining:client:openCuttingBench', function()
     local gems = getCuttableGems()
 
     if #gems == 0 then
