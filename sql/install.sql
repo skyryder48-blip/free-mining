@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS `mining_stats` (
+    `player_id` VARCHAR(50) PRIMARY KEY,
+    `level` INT NOT NULL DEFAULT 1,
+    `experience` INT NOT NULL DEFAULT 0,
+    `total_mined` INT NOT NULL DEFAULT 0,
+    `total_earned` INT NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
